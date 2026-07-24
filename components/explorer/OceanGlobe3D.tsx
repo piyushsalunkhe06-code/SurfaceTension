@@ -507,10 +507,13 @@ function RealEarthGlobe({
     activeCoord?.surfaceType === "river" ? "#4ECDC4" :
     activeCoord?.surfaceType === "land"  ? "#2ECC71" : "#85ECD4";
 
-  // Calculate local marker vector matching activeCoord lat/lon
-  const markerLocalPos = useMemo(() => {
+  // Calculate local marker position and outward orientation matching activeCoord lat/lon
+  const markerOrientation = useMemo(() => {
     if (!activeCoord) return null;
-    return latLonToVector3(activeCoord.lat, activeCoord.lon, 2.01);
+    const pos = latLonToVector3(activeCoord.lat, activeCoord.lon, 2.008);
+    const normal = new THREE.Vector3(...pos).normalize();
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    return { pos, quat };
   }, [activeCoord]);
 
   return (
@@ -524,58 +527,57 @@ function RealEarthGlobe({
           uniforms={earthUniforms}
         />
 
-        {/* Locked Marker — Placed inside earthRef so it rotates 100% in sync with terrain */}
-        {activeCoord && markerLocalPos && (
-          <group position={markerLocalPos}>
-            {/* Stem pin line connecting surface to glowing beacon */}
-            <mesh position={[0, 0.02, 0]}>
-              <cylinderGeometry args={[0.002, 0.002, 0.04, 8]} />
-              <meshBasicMaterial color={beaconColor} />
+        {/* Locked Location Symbol Pin — Rotates 100% in sync with Earth mesh */}
+        {activeCoord && markerOrientation && (
+          <group position={markerOrientation.pos} quaternion={markerOrientation.quat}>
+            {/* Base Ring on Surface */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[0.018, 0.04, 32]} />
+              <meshBasicMaterial color={beaconColor} side={THREE.DoubleSide} transparent opacity={0.75} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[0.012, 32]} />
+              <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} transparent opacity={0.9} />
             </mesh>
 
-            {/* Glowing Beacon Head */}
+            {/* Vertical Pin Stem */}
             <mesh position={[0, 0.04, 0]}>
-              <sphereGeometry args={[0.016, 16, 16]} />
-              <meshStandardMaterial color={beaconColor} emissive={beaconColor} emissiveIntensity={3.0} />
+              <cylinderGeometry args={[0.003, 0.0015, 0.08, 12]} />
+              <meshStandardMaterial color={beaconColor} emissive={beaconColor} emissiveIntensity={2.0} />
             </mesh>
 
-            {/* Pulsing ring on globe surface */}
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[0.024, 0.038, 32]} />
-              <meshBasicMaterial color={beaconColor} side={THREE.DoubleSide} transparent opacity={0.85} />
-            </mesh>
+            {/* 3D Location Pin Head Symbol */}
+            <group position={[0, 0.085, 0]}>
+              {/* Outer Glowing Head */}
+              <mesh>
+                <sphereGeometry args={[0.024, 24, 24]} />
+                <meshStandardMaterial color={beaconColor} emissive={beaconColor} emissiveIntensity={3.5} roughness={0.1} />
+              </mesh>
+              {/* Inner White Core Pin Dot */}
+              <mesh>
+                <sphereGeometry args={[0.01, 16, 16]} />
+                <meshBasicMaterial color="#ffffff" />
+              </mesh>
+            </group>
 
-            {/* Floating Scientific Tooltip */}
-            <Html center distanceFactor={6} style={{ pointerEvents: "none" }}>
+            {/* Floating Scientific HTML Location Badge */}
+            <Html position={[0, 0.12, 0]} center distanceFactor={6.5} style={{ pointerEvents: "none" }}>
               <div
-                className="whitespace-nowrap rounded-lg px-3 py-2 text-[0.65rem] font-mono shadow-2xl flex flex-col gap-1 backdrop-blur-md"
+                className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.62rem] font-mono shadow-2xl flex items-center gap-2 backdrop-blur-md"
                 style={{
-                  background: "rgba(3,14,26,0.94)",
-                  border: `1px solid ${beaconColor}66`,
+                  background: "rgba(3,14,26,0.95)",
+                  border: `1px solid ${beaconColor}88`,
                   color: "#F2F0ED",
-                  boxShadow: `0 0 20px ${beaconColor}33`,
+                  boxShadow: `0 0 18px ${beaconColor}44`,
                 }}
               >
-                <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-1">
-                  <span className="font-bold uppercase tracking-wider" style={{ color: beaconColor }}>
-                    {activeCoord.locationName}
-                  </span>
-                  <span className="text-[0.55rem] px-1.5 py-0.2 rounded uppercase bg-white/10 font-semibold">
-                    {activeCoord.surfaceType}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[0.6rem]">
-                  <span className="text-white/60">Latitude:</span>
-                  <span className="font-semibold text-right">{activeCoord.lat.toFixed(4)}°</span>
-                  <span className="text-white/60">Longitude:</span>
-                  <span className="font-semibold text-right">{activeCoord.lon.toFixed(4)}°</span>
-                  <span className="text-white/60">
-                    {activeCoord.surfaceType === "ocean" ? "Depth:" : "Elevation:"}
-                  </span>
-                  <span className="font-semibold text-right">{activeCoord.elevationOrDepth}</span>
-                  <span className="text-white/60">Temp:</span>
-                  <span className="font-semibold text-right">{activeCoord.surfaceTemp}°C</span>
-                </div>
+                <span className="w-2 h-2 rounded-full animate-ping flex-shrink-0" style={{ background: beaconColor }} />
+                <span className="font-bold text-pearl uppercase tracking-wide">
+                  📍 {activeCoord.locationName}
+                </span>
+                <span className="text-[0.52rem] px-1 py-0.2 rounded font-semibold uppercase bg-white/10 text-mist">
+                  {activeCoord.surfaceType}
+                </span>
               </div>
             </Html>
           </group>

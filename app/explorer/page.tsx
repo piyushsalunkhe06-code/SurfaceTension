@@ -221,6 +221,8 @@ export default function ExplorerPage() {
     () => Object.fromEntries(LAYERS.map((l) => [l.id, l.defaultOn]))
   );
 
+  const [leftPanelTab, setLeftPanelTab] = useState<"hotspots" | "layers" | "alerts">("hotspots");
+
   // Hotspot data for selected location + year
   const hotspotData = useMemo(() => getHotspotData(activeHotspot, year), [activeHotspot, year]);
 
@@ -360,116 +362,161 @@ export default function ExplorerPage() {
       <div className="flex-1 flex min-h-0 relative">
 
         {/* LEFT COLUMN ─────────────────────────────────────────────── */}
-        <div className="w-72 flex-shrink-0 border-r border-white/5 overflow-y-auto scrollbar-thin z-10 flex flex-col"
+        <div className="w-80 flex-shrink-0 border-r border-white/5 z-10 flex flex-col min-h-0"
           style={{ background: "rgba(3,13,24,0.92)" }}>
 
-          {/* Brand mini */}
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between border-b border-white/5">
+          {/* Sidebar Header + Health Score */}
+          <div className="px-4 pt-3.5 pb-2.5 flex items-center justify-between border-b border-white/5 flex-shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-seafoam/20 flex items-center justify-center">
                 <Compass className="w-3.5 h-3.5 text-seafoam" />
               </div>
               <div>
-                <div className="text-[0.62rem] font-bold text-pearl">DeepSea Guardian</div>
-                <div className="text-[0.5rem] font-mono text-mist/50 uppercase tracking-widest">Ocean Intelligence System</div>
+                <div className="text-[0.65rem] font-bold text-pearl leading-tight truncate max-w-[120px]">{activeHotspot}</div>
+                <div className="text-[0.5rem] font-mono text-mist/50 uppercase tracking-wider">Target Hotspot</div>
               </div>
             </div>
             {/* Health pill */}
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[0.6rem] font-mono font-bold"
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[0.6rem] font-mono font-bold flex-shrink-0"
               style={{ background: `${healthColor(hotspotData.health)}22`, color: healthColor(hotspotData.health), border: `1px solid ${healthColor(hotspotData.health)}44` }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: healthColor(hotspotData.health) }} />
               Health {hotspotData.health}
             </div>
           </div>
 
-          {/* Search */}
-          <div className="px-3 pt-3">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-mist/50 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text" value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search ocean regions..."
-                className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-8 pr-7 py-2 text-xs font-mono text-pearl placeholder:text-mist/40 focus:outline-none focus:border-seafoam/40 transition-colors"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-mist/40 hover:text-pearl">
-                  <X className="w-3.5 h-3.5" />
-                </button>
+          {/* Sidebar Tab Navigation Bar */}
+          <div className="grid grid-cols-3 border-b border-white/5 p-1 bg-white/[0.02] text-[0.6rem] font-mono flex-shrink-0">
+            <button
+              onClick={() => setLeftPanelTab("hotspots")}
+              className={`py-1.5 rounded-lg flex items-center justify-center gap-1 font-semibold transition-all ${
+                leftPanelTab === "hotspots"
+                  ? "bg-seafoam/15 text-seafoam border border-seafoam/30"
+                  : "text-mist hover:text-pearl hover:bg-white/5"
+              }`}
+            >
+              <MapPin className="w-3 h-3" />
+              <span>Hotspots ({PRESET_COORDINATES.length})</span>
+            </button>
+
+            <button
+              onClick={() => setLeftPanelTab("layers")}
+              className={`py-1.5 rounded-lg flex items-center justify-center gap-1 font-semibold transition-all ${
+                leftPanelTab === "layers"
+                  ? "bg-seafoam/15 text-seafoam border border-seafoam/30"
+                  : "text-mist hover:text-pearl hover:bg-white/5"
+              }`}
+            >
+              <Compass className="w-3 h-3" />
+              <span>Layers</span>
+            </button>
+
+            <button
+              onClick={() => setLeftPanelTab("alerts")}
+              className={`py-1.5 rounded-lg flex items-center justify-center gap-1 font-semibold transition-all relative ${
+                leftPanelTab === "alerts"
+                  ? "bg-seafoam/15 text-seafoam border border-seafoam/30"
+                  : "text-mist hover:text-pearl hover:bg-white/5"
+              }`}
+            >
+              <AlertTriangle className="w-3 h-3" />
+              <span>Alerts</span>
+              {globalAlerts.length > 0 && (
+                <span className="w-3.5 h-3.5 rounded-full bg-coral text-white text-[0.45rem] font-bold flex items-center justify-center ml-0.5">
+                  {globalAlerts.length}
+                </span>
               )}
-            </div>
+            </button>
           </div>
 
-          {/* Active hotspot name + year health */}
-          <div className="px-4 py-3 border-b border-white/5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-pearl truncate">{activeHotspot}</span>
-              <span className="font-mono text-xs font-bold ml-2 flex-shrink-0"
-                style={{ color: healthColor(hotspotData.health) }}>{hotspotData.health}</span>
-            </div>
-          </div>
-
-          {/* Filter pills */}
-          <div className="px-3 py-2 flex items-center gap-1 text-[0.6rem] font-mono border-b border-white/5">
-            {(["all","ocean","river","land"] as const).map((cat) => (
-              <button key={cat} onClick={() => setSelectedFilter(cat)}
-                className="px-2.5 py-1 rounded-lg uppercase transition-all"
-                style={{
-                  background: selectedFilter === cat ? "rgba(133,236,212,0.15)" : "rgba(255,255,255,0.02)",
-                  color: selectedFilter === cat ? "#85ECD4" : "rgba(242,240,237,0.45)",
-                  border: selectedFilter === cat ? "1px solid rgba(133,236,212,0.3)" : "1px solid transparent",
-                }}>
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Hotspot list */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-            {filteredHotspots.length === 0
-              ? <p className="text-center py-6 text-[0.62rem] text-mist/40 font-mono">No matches for "{searchQuery}"</p>
-              : filteredHotspots.map((preset) => {
-                  const isActive = preset.name === activeHotspot;
-                  const d = getHotspotData(preset.name, year);
-                  const hc = healthColor(d.health);
-                  return (
-                    <button key={preset.name} onClick={() => handleSelectHotspot(preset)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl border text-left transition-all duration-150 group"
-                      style={{
-                        background: isActive ? "rgba(133,236,212,0.08)" : "rgba(255,255,255,0.02)",
-                        borderColor: isActive ? "rgba(133,236,212,0.35)" : "rgba(255,255,255,0.05)",
-                      }}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="flex-shrink-0">
-                          {preset.type === "river" && <Droplet className="w-3 h-3 text-seafoam" />}
-                          {preset.type === "land"  && <Trees   className="w-3 h-3 text-kelp" />}
-                          {preset.type === "ocean" && <Waves   className="w-3 h-3 text-foam" />}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-xs font-semibold text-pearl truncate group-hover:text-seafoam transition-colors">{preset.name}</div>
-                          <div className="text-[0.52rem] font-mono text-mist/50 uppercase truncate">{preset.region}</div>
-                        </div>
-                      </div>
-                      <span className="font-mono text-[0.65rem] font-bold flex-shrink-0 ml-2" style={{ color: hc }}>{d.health}</span>
+          {/* TAB 1: HOTSPOTS (100% Scrollable space, no overlap) */}
+          {leftPanelTab === "hotspots" && (
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              {/* Search */}
+              <div className="px-3 pt-3 flex-shrink-0">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-mist/50 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text" value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search 24 global hotspots..."
+                    className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-8 pr-7 py-2 text-xs font-mono text-pearl placeholder:text-mist/40 focus:outline-none focus:border-seafoam/40 transition-colors"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-mist/40 hover:text-pearl">
+                      <X className="w-3.5 h-3.5" />
                     </button>
-                  );
-                })}
-          </div>
+                  )}
+                </div>
+              </div>
 
-          {/* ── LAYER CONTROLS ──────────────────────── */}
-          <div className="border-t border-white/8 px-3 pt-3 pb-2">
-            <div className="text-[0.55rem] font-mono text-mist/50 uppercase tracking-widest mb-2">Layer Controls</div>
-            <div className="space-y-1.5">
+              {/* Filter pills */}
+              <div className="px-3 py-2 flex items-center gap-1 text-[0.6rem] font-mono border-b border-white/5 flex-shrink-0">
+                {(["all","ocean","river","land"] as const).map((cat) => (
+                  <button key={cat} onClick={() => setSelectedFilter(cat)}
+                    className="px-2.5 py-1 rounded-lg uppercase transition-all"
+                    style={{
+                      background: selectedFilter === cat ? "rgba(133,236,212,0.15)" : "rgba(255,255,255,0.02)",
+                      color: selectedFilter === cat ? "#85ECD4" : "rgba(242,240,237,0.45)",
+                      border: selectedFilter === cat ? "1px solid rgba(133,236,212,0.3)" : "1px solid transparent",
+                    }}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Full scrollable hotspots list */}
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 scrollbar-thin">
+                {filteredHotspots.length === 0
+                  ? <p className="text-center py-6 text-[0.62rem] text-mist/40 font-mono">No matches for "{searchQuery}"</p>
+                  : filteredHotspots.map((preset) => {
+                      const isActive = preset.name === activeHotspot;
+                      const d = getHotspotData(preset.name, year);
+                      const hc = healthColor(d.health);
+                      return (
+                        <button key={preset.name} onClick={() => handleSelectHotspot(preset)}
+                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-all duration-150 group"
+                          style={{
+                            background: isActive ? "rgba(133,236,212,0.12)" : "rgba(255,255,255,0.02)",
+                            borderColor: isActive ? "rgba(133,236,212,0.4)" : "rgba(255,255,255,0.05)",
+                          }}>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="flex-shrink-0">
+                              {preset.type === "river" && <Droplet className="w-3.5 h-3.5 text-seafoam" />}
+                              {preset.type === "land"  && <Trees   className="w-3.5 h-3.5 text-kelp" />}
+                              {preset.type === "ocean" && <Waves   className="w-3.5 h-3.5 text-foam" />}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-pearl truncate group-hover:text-seafoam transition-colors">{preset.name}</div>
+                              <div className="text-[0.54rem] font-mono text-mist/50 uppercase truncate">{preset.region}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                            <span className="font-mono text-[0.65rem] font-bold" style={{ color: hc }}>{d.health}</span>
+                            <MapPin className={`w-3 h-3 transition-opacity ${isActive ? "text-seafoam opacity-100" : "text-mist/30 opacity-0 group-hover:opacity-100"}`} />
+                          </div>
+                        </button>
+                      );
+                    })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: LAYER CONTROLS */}
+          {leftPanelTab === "layers" && (
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 scrollbar-thin">
+              <div className="text-[0.55rem] font-mono text-mist/50 uppercase tracking-widest px-1 mb-1">Interactive Ocean Layers</div>
               {LAYERS.map(({ id, label, icon: Icon, color, defaultOn: _ }) => (
-                <div key={id} className="flex items-center justify-between px-3 py-2 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+                <div key={id} className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{ background: `${color}22`, border: `1px solid ${color}44` }}>
                       <Icon className="w-3.5 h-3.5" style={{ color }} />
                     </div>
-                    <span className="text-xs font-medium text-pearl/90">{label}</span>
+                    <div>
+                      <div className="text-xs font-medium text-pearl">{label}</div>
+                      <div className="text-[0.5rem] font-mono text-mist/40">{layers[id] ? "ACTIVE LAYER" : "HIDDEN"}</div>
+                    </div>
                   </div>
-                  {/* Toggle switch */}
                   <button onClick={() => toggleLayer(id)} className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
                     style={{ background: layers[id] ? color : "rgba(255,255,255,0.08)" }}>
                     <span className="absolute top-0.5 transition-all duration-200 w-4 h-4 rounded-full bg-white shadow"
@@ -478,49 +525,48 @@ export default function ExplorerPage() {
                 </div>
               ))}
             </div>
-          </div>
+          )}
 
-          {/* ── ENVIRONMENTAL ALERTS ─────────────────── */}
-          <div className="border-t border-white/8 px-3 pt-3 pb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="text-[0.55rem] font-mono text-mist/50 uppercase tracking-widest">Environmental Alerts</div>
-              {globalAlerts.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-coral text-white text-[0.5rem] font-bold flex items-center justify-center flex-shrink-0">
-                  {globalAlerts.length}
-                </span>
-              )}
-            </div>
-            {globalAlerts.length === 0
-              ? <p className="text-[0.62rem] text-mist/40 font-mono">No alerts for {year}</p>
-              : (
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {globalAlerts.map(({ name, region, alert }) => (
+          {/* TAB 3: ENVIRONMENTAL ALERTS */}
+          {leftPanelTab === "alerts" && (
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 scrollbar-thin">
+              <div className="flex items-center justify-between px-1 mb-1">
+                <div className="text-[0.55rem] font-mono text-mist/50 uppercase tracking-widest">Global Risk Scan — {year}</div>
+                <span className="text-[0.55rem] font-mono text-seafoam font-bold uppercase">{globalAlerts.length} Active</span>
+              </div>
+              {globalAlerts.length === 0
+                ? <p className="text-[0.62rem] text-mist/40 font-mono py-8 text-center">No high-risk environmental alerts logged for {year}</p>
+                : globalAlerts.map(({ name, alert }) => (
                     <button key={name} onClick={() => {
                       const p = PRESET_COORDINATES.find(x => x.name === name);
                       if (p) handleSelectHotspot(p);
                     }}
-                      className="w-full flex items-start gap-2.5 px-3 py-2 rounded-xl border text-left transition-all hover:bg-white/[0.04]"
-                      style={{ background: `${severityColor(alert.severity)}10`, borderColor: `${severityColor(alert.severity)}25` }}>
+                      className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all hover:bg-white/[0.04] group"
+                      style={{ background: `${severityColor(alert.severity)}10`, borderColor: `${severityColor(alert.severity)}30` }}>
                       <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
                         style={{ background: `${severityColor(alert.severity)}22` }}>
                         {alert.severity === "critical"
-                          ? <AlertCircle  className="w-3 h-3" style={{ color: severityColor(alert.severity) }} />
-                          : <AlertTriangle className="w-3 h-3" style={{ color: severityColor(alert.severity) }} />}
+                          ? <AlertCircle  className="w-3.5 h-3.5" style={{ color: severityColor(alert.severity) }} />
+                          : <AlertTriangle className="w-3.5 h-3.5" style={{ color: severityColor(alert.severity) }} />}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[0.65rem] font-semibold text-pearl truncate">{alert.label}</div>
+                        <div className="text-xs font-semibold text-pearl group-hover:text-seafoam transition-colors truncate">{alert.label}</div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <MapPin className="w-2.5 h-2.5 flex-shrink-0" style={{ color: severityColor(alert.severity) }} />
-                          <span className="text-[0.52rem] font-mono text-mist/60 truncate">{name.split(" ").slice(0,2).join(" ")}</span>
-                          <span className="text-[0.52rem] font-mono font-bold uppercase flex-shrink-0"
-                            style={{ color: severityColor(alert.severity) }}>{alert.severity}</span>
+                          <span className="text-[0.54rem] font-mono text-mist/70 truncate">{name}</span>
                         </div>
                       </div>
                     </button>
                   ))}
-                </div>
-              )}
+            </div>
+          )}
+
+          {/* Quick Footer indicator */}
+          <div className="px-3 py-2 border-t border-white/5 bg-white/[0.01] text-[0.58rem] font-mono text-mist/50 flex items-center justify-between flex-shrink-0">
+            <span>24 Biodiversity Reserves</span>
+            <span className="text-seafoam">Year {year}</span>
           </div>
+
         </div>
 
         {/* CENTER COLUMN ───────────────────────────── */}
