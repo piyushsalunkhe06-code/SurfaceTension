@@ -16,7 +16,7 @@ Keep responses engaging, rich with quantitative ocean metrics when relevant, and
       : prompt;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: fullPrompt,
       config: {
         systemInstruction,
@@ -35,7 +35,7 @@ Keep responses engaging, rich with quantitative ocean metrics when relevant, and
     try {
       if (apiKey) {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

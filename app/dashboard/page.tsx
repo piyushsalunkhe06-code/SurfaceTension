@@ -13,7 +13,7 @@ const BiolumScene = dynamic(() => import("@/components/3d/BiolumScene"), { ssr: 
 export default function DashboardPage() {
   return (
     <div
-      className="min-h-screen flex flex-col overflow-x-hidden"
+      className="min-h-screen flex flex-col overflow-x-hidden pt-14"
       style={{ background: "radial-gradient(ellipse at 50% 0%, #0A2440 0%, #050E1A 65%)" }}
     >
       {/* 3D bioluminescent ambient background */}

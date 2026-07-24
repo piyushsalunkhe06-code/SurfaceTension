@@ -160,41 +160,7 @@ export default function ExplorerPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-abyss text-pearl">
-      {/* Top Navigation Bar */}
-      <div
-        className="flex items-center justify-between px-6 py-3 border-b border-white/5 flex-shrink-0 z-20"
-        style={{ background: "rgba(3,13,24,0.92)", backdropFilter: "blur(20px)" }}
-      >
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-mist hover:text-pearl transition-colors flex items-center gap-2">
-            <Home className="w-4 h-4" />
-          </Link>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex items-center gap-2.5">
-            <Compass className="w-4 h-4 text-foam" />
-            <span className="font-display font-semibold text-pearl text-sm tracking-tight">
-              Photorealistic Planet Explorer
-            </span>
-          </div>
-          <div className="hidden md:flex items-center gap-2 ml-2">
-            <span className="w-2 h-2 rounded-full bg-seafoam animate-pulse" />
-            <span className="font-mono text-[0.6rem] text-seafoam tracking-widest uppercase">
-              Click Any River, Land, or Ocean Point
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="text-xs font-mono text-mist hover:text-foam transition-colors flex items-center gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-seafoam" />
-            Ocean Watch Dashboard →
-          </Link>
-        </div>
-      </div>
+    <div className="h-screen flex flex-col overflow-hidden bg-abyss text-pearl pt-14">
 
       {/* Main 3-Column Interface */}
       <div className="flex-1 flex min-h-0 relative">
