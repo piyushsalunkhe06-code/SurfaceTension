@@ -1,153 +1,141 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useRef } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
-import Link from "next/link";
+import { motion, useScroll, useTransform } from "framer-motion";
 
-const HeroEarth = dynamic(() => import("./HeroEarth"), { ssr: false });
+const EarthV2 = dynamic(() => import("@/components/3d/EarthV2"), { ssr: false });
+
+const STATS = [
+  { value: "71%",    label: "of Earth is ocean" },
+  { value: "3.8km",  label: "avg. ocean depth" },
+  { value: "97%",    label: "of Earth's water" },
+  { value: "80%",    label: "of life on Earth" },
+];
 
 export default function Hero() {
-  const sectionRef    = useRef<HTMLDivElement>(null);
+  const scrollRef      = useRef<HTMLDivElement>(null);
   const scrollProgress = useRef(0);
-  const [textOpacity, setTextOpacity] = useState(1);
+  const containerRef   = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onScroll = () => {
-      const el = sectionRef.current;
-      if (!el) return;
-      const rect     = el.getBoundingClientRect();
-      const total    = el.offsetHeight - window.innerHeight;
-      const progress = Math.min(1, Math.max(0, -rect.top / (total || 1)));
-      scrollProgress.current = progress;
-      setTextOpacity(Math.max(0, 1 - progress * 1.6));
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  const { scrollYProgress } = useScroll({ target: containerRef });
+  const opacity    = useTransform(scrollYProgress, [0, 0.55], [1, 0]);
+  const translateY = useTransform(scrollYProgress, [0, 0.55], [0, -80]);
+
+  // Keep scroll progress synced for Three.js
+  scrollYProgress.on("change", v => { scrollProgress.current = Math.min(v * 1.6, 1); });
 
   return (
-    <section ref={sectionRef} className="relative h-[165vh]" style={{
-      background: "radial-gradient(ellipse at 50% 20%, #0B2D50 0%, #050E1A 60%, #020810 100%)",
-    }}>
-      <div className="sticky top-0 h-screen overflow-hidden">
-        {/* Starfield SVG background */}
-        <div className="absolute inset-0 pointer-events-none">
-          {Array.from({ length: 80 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full bg-white/30"
-              style={{
-                width:  `${1 + Math.random() * 2}px`,
-                height: `${1 + Math.random() * 2}px`,
-                left:   `${Math.random() * 100}%`,
-                top:    `${Math.random() * 60}%`,
-                opacity: 0.2 + Math.random() * 0.5,
-                animation: `pulse_glow ${3 + Math.random() * 4}s ease-in-out infinite`,
-                animationDelay: `${Math.random() * 4}s`,
-              }}
-            />
-          ))}
+    <section
+      ref={containerRef}
+      className="relative"
+      style={{ height: "220vh" }}
+    >
+      {/* Sticky container */}
+      <div className="sticky top-0 h-screen overflow-hidden" ref={scrollRef}>
+        {/* 3D Earth canvas — full screen */}
+        <div className="absolute inset-0 z-0">
+          <Suspense fallback={null}>
+            <EarthV2 scrollProgress={scrollProgress} />
+          </Suspense>
         </div>
 
-        {/* 3D Earth */}
-        <div className="absolute inset-0">
-          <HeroEarth scrollProgress={scrollProgress} />
-        </div>
-
-        {/* Text overlay */}
+        {/* Radial vignette for depth */}
         <div
-          className="relative z-10 h-full flex flex-col items-center justify-center text-center px-6 pointer-events-none"
-          style={{ opacity: textOpacity, transition: "opacity 0.1s" }}
+          className="absolute inset-0 z-[1] pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, transparent 45%, rgba(4,13,20,0.6) 80%, rgba(4,13,20,0.9) 100%)",
+          }}
+        />
+
+        {/* Bottom fade into next section */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-48 z-[2] pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, transparent, #040D14)" }}
+        />
+
+        {/* Hero text */}
+        <motion.div
+          style={{ opacity, y: translateY }}
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center"
         >
-          {/* Eyebrow */}
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.4 }}
-            className="flex items-center gap-2 mb-7"
+            transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="section-eyebrow text-foam/60 mb-8"
           >
-            <div className="h-[1px] w-8 bg-seafoam/50" />
-            <span className="font-mono text-[0.68rem] tracking-[0.25em] text-seafoam uppercase">
-              Live Ocean Observation
-            </span>
-            <div className="h-[1px] w-8 bg-seafoam/50" />
+            Ocean Intelligence Platform
           </motion.div>
 
-          {/* Headline */}
           <motion.h1
-            initial={{ opacity: 0, y: 30, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            transition={{ duration: 1, delay: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display font-bold text-pearl text-[clamp(2.4rem,6.5vw,5.2rem)] leading-[1.04] max-w-4xl tracking-tight"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1.4, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="font-display font-bold text-pearl leading-none tracking-tight mb-6"
+            style={{ fontSize: "clamp(3.5rem, 10vw, 8.5rem)" }}
           >
-            The Ocean Is Speaking.
-            <br />
-            <span className="gradient-text">Are We Listening?</span>
+            The Ocean<br />
+            <span className="gradient-text">Needs Watching.</span>
           </motion.h1>
 
-          {/* Sub */}
           <motion.p
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.85 }}
-            className="mt-6 text-mist text-base md:text-lg max-w-xl leading-relaxed"
+            transition={{ duration: 1.2, delay: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className="font-body text-mist max-w-lg leading-relaxed mb-14"
+            style={{ fontSize: "clamp(1rem, 1.8vw, 1.2rem)" }}
           >
-            A living window into Earth's marine world — revealing the beauty, fragility, and urgency of our ocean ecosystems through immersive real-time visualization.
+            Real-time ocean intelligence for researchers, conservationists,
+            and the organizations protecting our planet's most vital ecosystem.
           </motion.p>
 
-          {/* CTAs */}
+          {/* Stats row */}
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.05 }}
-            className="mt-10 flex flex-col sm:flex-row gap-4 items-center pointer-events-auto"
+            transition={{ duration: 1, delay: 1.2 }}
+            className="flex items-center gap-8 md:gap-14 flex-wrap justify-center"
           >
-            <Link
-              href="/explorer"
-              className="px-9 py-4 rounded-full font-bold text-sm text-abyss transition-all duration-300 hover:scale-105"
-              style={{
-                background: "linear-gradient(135deg, #4ECDC4, #0096B7)",
-                boxShadow: "0 0 32px -6px rgba(78, 205, 196, 0.7)",
-              }}
-            >
-              Dive Into the Ocean
-            </Link>
-            <Link
-              href="/dashboard"
-              className="px-9 py-4 rounded-full border border-seafoam/25 text-pearl text-sm hover:bg-seafoam/8 hover:border-seafoam/50 transition-all duration-300"
-            >
-              Ocean Watch →
-            </Link>
-          </motion.div>
-
-          {/* Ocean Stats */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 1.3 }}
-            className="mt-16 flex gap-10 flex-wrap justify-center"
-          >
-            {[
-              { value: "71%",  label: "of Earth covered by ocean" },
-              { value: "3.8km", label: "average ocean depth" },
-              { value: "252K+", label: "known marine species" },
-            ].map((s, i) => (
-              <div key={i} className={`text-center ${i > 0 ? "pl-10 border-l border-white/8" : ""}`}>
-                <div className="font-display font-bold text-[clamp(1.6rem,3vw,2.4rem)] leading-none text-seafoam" style={{ textShadow: "0 0 20px rgba(78,205,196,0.4)" }}>
+            {STATS.map((s) => (
+              <div key={s.label} className="text-center">
+                <div
+                  className="font-display font-bold text-pearl leading-none"
+                  style={{ fontSize: "clamp(1.8rem, 3vw, 2.8rem)", letterSpacing: "-0.03em" }}
+                >
                   {s.value}
                 </div>
-                <div className="mt-1.5 text-[0.7rem] tracking-[0.12em] uppercase text-mist font-mono">{s.label}</div>
+                <div className="section-eyebrow mt-2 text-mist/50 justify-center">{s.label}</div>
               </div>
             ))}
           </motion.div>
-        </div>
+        </motion.div>
 
-        {/* Bottom fade to ocean */}
-        <div
-          className="absolute bottom-0 left-0 right-0 h-44 pointer-events-none"
-          style={{ background: "linear-gradient(180deg, transparent, rgba(0, 70, 100, 0.3) 50%, #050E1A)" }}
-        />
+        {/* Scroll cue */}
+        <motion.div
+          style={{ opacity }}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2"
+        >
+          <span className="section-eyebrow text-mist/30">Scroll to dive</span>
+          <motion.div
+            animate={{ y: [0, 8, 0] }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+            className="w-5 h-8 rounded-full border border-mist/20 flex items-start justify-center pt-1.5"
+          >
+            <div className="w-1 h-1.5 rounded-full bg-foam/50" />
+          </motion.div>
+        </motion.div>
+
+        {/* Depth indicator (cinematic sidebar) */}
+        <div className="absolute left-6 top-1/2 -translate-y-1/2 z-10 hidden lg:flex flex-col gap-4">
+          {["Surface", "50m", "200m", "Deep"].map((d, i) => (
+            <div key={d} className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-foam/30" />
+              <span className="font-mono text-[0.55rem] text-mist/25 tracking-widest">{d}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

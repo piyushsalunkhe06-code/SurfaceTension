@@ -1,179 +1,193 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
 import {
-  AreaChart, Area, ResponsiveContainer, Tooltip,
-  RadarChart, PolarGrid, PolarAngleAxis, Radar,
+  AreaChart, Area, ResponsiveContainer,
+  RadarChart, PolarGrid, PolarAngleAxis, Radar, Tooltip,
 } from "recharts";
 
-const OceanWaveScene = dynamic(() => import("@/components/3d/OceanWaveScene"), { ssr: false });
+const WaterSurface = dynamic(() => import("@/components/3d/WaterSurface"), { ssr: false });
 
 const tempData = [
-  { m: "2019", v: 0.18 }, { m: "2020", v: 0.24 }, { m: "2021", v: 0.28 },
-  { m: "2022", v: 0.35 }, { m: "2023", v: 0.42 }, { m: "2024", v: 0.50 },
-  { m: "2025", v: 0.58 },
-];
-const radarData = [
-  { s: "Coral",       v: 62 }, { s: "Plankton",  v: 84 },
-  { s: "Fish",        v: 73 }, { s: "Mammals",   v: 78 },
-  { s: "Seagrass",    v: 55 }, { s: "Mangroves", v: 69 },
+  { m: "2018", v: 0.22 }, { m: "2019", v: 0.28 }, { m: "2020", v: 0.33 },
+  { m: "2021", v: 0.31 }, { m: "2022", v: 0.38 }, { m: "2023", v: 0.45 },
+  { m: "2024", v: 0.50 }, { m: "2025", v: 0.54 }, { m: "2026", v: 0.60 },
 ];
 
-const ttStyle = { contentStyle: { background: "#071A2F", border: "1px solid rgba(78,205,196,0.2)", borderRadius: 8, fontSize: 11, color: "#E8F4FD" } };
+const healthData = [
+  { s: "Temperature", v: 58 }, { s: "Acidity",     v: 44 },
+  { s: "Oxygen",      v: 72 }, { s: "Biodiversity",v: 67 },
+  { s: "Currents",    v: 78 }, { s: "Pollution",   v: 35 },
+];
+
+const tt = {
+  contentStyle: {
+    background: "#071829", border: "1px solid rgba(133,236,212,0.15)",
+    borderRadius: 8, fontSize: 11, color: "#F2F0ED",
+  },
+};
 
 export default function OceanDataPreview() {
   return (
-    <section className="relative py-28 overflow-hidden" style={{
-      background: "radial-gradient(ellipse at 50% 50%, #0B2240 0%, #050E1A 70%)"
-    }}>
-      {/* 3D wave subtly in background */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
-        <OceanWaveScene height="h-full" />
+    <section
+      className="relative overflow-hidden"
+      style={{ background: "#040D14", minHeight: "80vh" }}
+    >
+      {/* Subtle water bg at the bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-64 z-0 opacity-15">
+        <Suspense fallback={null}>
+          <WaterSurface height="h-full" />
+        </Suspense>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12">
-        <div className="text-center mb-14">
-          <motion.span
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="font-mono text-[0.65rem] tracking-[0.25em] text-seafoam uppercase"
-          >
-            Ocean Intelligence
-          </motion.span>
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="mt-4 font-display font-bold text-pearl text-[clamp(1.9rem,4vw,3rem)] leading-tight"
-          >
-            Data That Tells the Ocean's Story
-          </motion.h2>
+      <div
+        className="absolute bottom-0 left-0 right-0 h-64 z-[1] pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, #040D14, transparent)" }}
+      />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-32">
+        {/* Header — large editorial */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-20">
+          <div>
+            <div className="section-eyebrow text-foam/50 mb-6">Data Intelligence</div>
+            <h2
+              className="font-display font-bold text-pearl leading-none"
+              style={{ fontSize: "clamp(2.5rem, 5.5vw, 5rem)", letterSpacing: "-0.03em" }}
+            >
+              The ocean<br />
+              <span className="gradient-text">in numbers.</span>
+            </h2>
+          </div>
+
+          {/* Right — mini stat block */}
+          <div className="flex gap-12">
+            {[
+              { val: "74",  unit: "/100", label: "Global Health Score" },
+              { val: "8.05",unit: "pH",   label: "Ocean pH This Month" },
+            ].map(s => (
+              <div key={s.label}>
+                <div
+                  className="font-display font-bold text-pearl leading-none"
+                  style={{ fontSize: "clamp(2rem, 4vw, 3.5rem)", letterSpacing: "-0.04em" }}
+                >
+                  {s.val}
+                  <span className="font-mono text-foam/40 ml-1" style={{ fontSize: "0.9rem" }}>
+                    {s.unit}
+                  </span>
+                </div>
+                <div className="section-eyebrow mt-2 text-mist/40 justify-start">{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Temperature Trend */}
+        {/* Magazine-style chart layout — asymmetric */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          {/* Large area chart — 3/5 width */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass-ocean rounded-2xl p-6 lg:col-span-2"
+            transition={{ duration: 0.9 }}
+            className="lg:col-span-3"
           >
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="font-display font-semibold text-pearl">Sea Surface Temperature Anomaly</h3>
-                <p className="text-mist text-xs mt-1">°C above pre-industrial baseline</p>
+            <div className="mb-4">
+              <div className="font-mono text-mist/40 text-xs tracking-widest uppercase mb-1">
+                Sea Surface Temperature Anomaly
               </div>
-              <span className="font-mono text-coral text-xl font-bold" style={{ textShadow: "0 0 12px rgba(255,107,107,0.5)" }}>+0.58°C</span>
+              <div className="text-mist/30 text-xs">°C above 1961–1990 baseline</div>
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={tempData}>
-                <defs>
-                  <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor="#FF6B6B" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#FF6B6B" stopOpacity={0}   />
-                  </linearGradient>
-                </defs>
-                <Area type="monotone" dataKey="v" stroke="#FF6B6B" fill="url(#tempGrad)" strokeWidth={2} />
-                <Tooltip {...ttStyle} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </motion.div>
-
-          {/* Marine Biodiversity Radar */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.15 }}
-            className="glass-ocean rounded-2xl p-6"
-          >
-            <h3 className="font-display font-semibold text-pearl mb-1">Marine Biodiversity</h3>
-            <p className="text-mist text-xs mb-3">Species group vitality index</p>
-            <ResponsiveContainer width="100%" height={188}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="rgba(78,205,196,0.1)" />
-                <PolarAngleAxis dataKey="s" stroke="#94A3B8" fontSize={10} />
-                <Radar dataKey="v" stroke="#4ECDC4" fill="#4ECDC4" fillOpacity={0.22} strokeWidth={1.5} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </motion.div>
-
-          {/* Health Score + Mini Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="glass-ocean rounded-2xl p-6"
-          >
-            <h3 className="font-display font-semibold text-pearl mb-4">Global Ocean Health</h3>
-            <div className="flex items-center gap-5">
-              <div className="relative w-24 h-24 flex-shrink-0">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="url(#healthG)" strokeWidth="10"
-                    strokeLinecap="round" strokeDasharray={`${(74 / 100) * 263.9} 263.9`} />
+            <div
+              className="rounded-2xl overflow-hidden p-6"
+              style={{ background: "rgba(7,24,41,0.4)", border: "1px solid rgba(133,236,212,0.06)" }}
+            >
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={tempData}>
                   <defs>
-                    <linearGradient id="healthG" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%"   stopColor="#4ECDC4" />
-                      <stop offset="100%" stopColor="#0096B7" />
+                    <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%"   stopColor="#E8694A" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#E8694A" stopOpacity={0}   />
                     </linearGradient>
                   </defs>
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="font-display font-bold text-2xl text-pearl">74</span>
-                  <span className="text-[0.6rem] text-mist font-mono">/100</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm font-semibold text-seafoam">Moderate Health</div>
-                <div className="text-xs text-mist leading-relaxed">
-                  Ocean systems are under measurable stress. Conservation action can reverse current trends.
-                </div>
-              </div>
+                  <Area
+                    type="monotone" dataKey="v"
+                    stroke="#E8694A" strokeWidth={2}
+                    fill="url(#tg)"
+                  />
+                  <Tooltip {...tt} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </motion.div>
 
-          {/* Coral Health */}
+          {/* Radar chart — 2/5 width */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            className="glass-ocean rounded-2xl p-6 lg:col-span-2"
+            transition={{ duration: 0.9, delay: 0.15 }}
+            className="lg:col-span-2"
           >
-            <h3 className="font-display font-semibold text-pearl mb-5">Reef Health by Region</h3>
-            <div className="space-y-4">
-              {[
-                { name: "Great Barrier Reef",   score: 62, color: "#FF9F1C" },
-                { name: "Caribbean Reefs",      score: 45, color: "#FF6B6B" },
-                { name: "Coral Triangle",       score: 71, color: "#4ECDC4" },
-                { name: "Red Sea",              score: 79, color: "#4ECDC4" },
-                { name: "Maldives",             score: 38, color: "#FF6B6B" },
-              ].map((reef) => (
-                <div key={reef.name} className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-mist">{reef.name}</span>
-                    <span className="font-mono font-bold" style={{ color: reef.color }}>{reef.score}%</span>
-                  </div>
-                  <div className="h-1.5 rounded bg-white/5 overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${reef.score}%` }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.9, delay: 0.2 }}
-                      className="h-full rounded"
-                      style={{ background: `linear-gradient(90deg, ${reef.color}, ${reef.color}88)` }}
-                    />
-                  </div>
-                </div>
-              ))}
+            <div className="mb-4">
+              <div className="font-mono text-mist/40 text-xs tracking-widest uppercase mb-1">
+                Ocean Biosphere Index
+              </div>
+              <div className="text-mist/30 text-xs">6-dimension health assessment</div>
+            </div>
+            <div
+              className="rounded-2xl overflow-hidden p-4"
+              style={{ background: "rgba(7,24,41,0.4)", border: "1px solid rgba(133,236,212,0.06)" }}
+            >
+              <ResponsiveContainer width="100%" height={260}>
+                <RadarChart data={healthData}>
+                  <PolarGrid stroke="rgba(133,236,212,0.07)" />
+                  <PolarAngleAxis dataKey="s" stroke="#7A8E9E" fontSize={10} />
+                  <Radar
+                    dataKey="v" stroke="#4ECDC4" fill="#4ECDC4" fillOpacity={0.18} strokeWidth={1.5}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
             </div>
           </motion.div>
         </div>
+
+        {/* Bottom CTA — understated, premium */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-16 gap-6"
+        >
+          <p className="text-mist/40 max-w-sm text-sm leading-relaxed">
+            Full historical datasets, predictive models, and real-time API access available
+            to verified researchers and partner organisations.
+          </p>
+          <div className="flex gap-4">
+            <a
+              href="/explorer"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-display font-semibold text-sm transition-all duration-300 hover:scale-105"
+              style={{
+                background: "linear-gradient(135deg, #0E6B8A, #1A5276)",
+                color: "#F2F0ED",
+              }}
+            >
+              Explore the Globe
+            </a>
+            <a
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-display font-medium text-sm border transition-all duration-300 hover:border-foam/30"
+              style={{
+                border: "1px solid rgba(133,236,212,0.15)",
+                color: "#7A8E9E",
+              }}
+            >
+              Ocean Watch →
+            </a>
+          </div>
+        </motion.div>
       </div>
     </section>
   );

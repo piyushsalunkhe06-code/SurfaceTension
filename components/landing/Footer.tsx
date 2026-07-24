@@ -1,75 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, Share2, Globe } from "lucide-react";
-
-const LINKS = {
-  Explore: ["Ocean Explorer", "Live Ocean Watch", "Coral Reef Map", "Species Tracker"],
-  Science: ["Data Methodology", "Research Partners", "Publications", "Open Data"],
-  Organization: ["About Us", "Press", "Conservation Partners", "Contact"],
-};
+import { Waves } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="relative border-t border-seafoam/8 bg-abyss">
-      {/* Gentle wave top */}
-      <div className="pointer-events-none -mt-1">
-        <svg viewBox="0 0 1440 50" preserveAspectRatio="none" style={{ width: "100%", height: 40 }}>
-          <path d="M0,25 C360,50 1080,0 1440,25 L1440,0 L0,0 Z" fill="#041524" />
-        </svg>
+    <footer className="relative bg-abyss border-t border-white/5 py-16 px-6 text-mist text-sm">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start justify-between gap-10">
+        <div className="space-y-4 max-w-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full border border-seafoam/30 bg-seafoam/10 flex items-center justify-center">
+              <Waves className="w-4 h-4 text-seafoam" />
+            </div>
+            <span className="font-display font-bold text-pearl text-lg tracking-tight">DeepSea Guardian</span>
+          </div>
+          <p className="text-mist/60 text-xs leading-relaxed">
+            An Ocean Intelligence Platform providing continuous environmental observations, biodiversity tracking, and predictive climate modeling for marine researchers and environmental organizations.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-10 font-mono text-xs">
+          <div className="space-y-3">
+            <div className="text-pearl font-bold uppercase tracking-wider text-[0.65rem] text-foam/70">Navigation</div>
+            <ul className="space-y-2 text-mist/60">
+              <li><Link href="/" className="hover:text-pearl transition-colors">Home</Link></li>
+              <li><Link href="/explorer" className="hover:text-pearl transition-colors">Ocean Explorer</Link></li>
+              <li><Link href="/dashboard" className="hover:text-pearl transition-colors">Ocean Watch</Link></li>
+            </ul>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-pearl font-bold uppercase tracking-wider text-[0.65rem] text-foam/70">Observation</div>
+            <ul className="space-y-2 text-mist/60">
+              <li>Sea Surface Temp</li>
+              <li>Acidification & pH</li>
+              <li>Reef Vitality</li>
+              <li>Biodiversity Index</li>
+            </ul>
+          </div>
+
+          <div className="space-y-3 col-span-2 sm:col-span-1">
+            <div className="text-pearl font-bold uppercase tracking-wider text-[0.65rem] text-foam/70">Network</div>
+            <p className="text-mist/50 text-[0.7rem] leading-relaxed">
+              Connected to 2,318 active sensor arrays across Pacific, Atlantic, Indian, Southern, and Arctic Basins.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 md:px-12 py-14">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
-          {/* Brand */}
-          <div className="md:col-span-4 space-y-5">
-            <div className="flex items-center gap-2.5">
-              <div className="relative w-7 h-7">
-                <div className="absolute inset-0 rounded-full border border-seafoam/60" style={{ boxShadow: "0 0 10px rgba(78,205,196,0.3)" }} />
-                <div className="absolute inset-1 rounded-full bg-gradient-to-br from-seafoam to-shallow" />
-              </div>
-              <span className="font-display font-bold text-pearl tracking-tight text-sm">DeepSea Guardian</span>
-            </div>
-            <p className="text-mist text-sm leading-relaxed max-w-xs">
-              A global ocean observation platform built for marine scientists, conservation organizations, and environmental policymakers.
-            </p>
-            <div className="flex items-center gap-3 pt-1">
-              {[Globe, ExternalLink, Share2].map((Icon, i) => (
-                <button
-                  key={i}
-                  className="w-9 h-9 rounded-xl border border-white/8 flex items-center justify-center text-mist hover:text-seafoam hover:border-seafoam/40 transition-all duration-200"
-                >
-                  <Icon className="w-4 h-4" />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Links */}
-          <div className="md:col-span-8 grid grid-cols-3 gap-8">
-            {Object.entries(LINKS).map(([cat, items]) => (
-              <div key={cat} className="space-y-4">
-                <h4 className="font-mono text-[0.62rem] tracking-[0.2em] text-mist uppercase">{cat}</h4>
-                <ul className="space-y-3">
-                  {items.map((item) => (
-                    <li key={item}>
-                      <span className="text-sm text-mist/60 hover:text-pearl transition-colors duration-200 cursor-pointer">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-14 pt-7 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-[0.7rem] font-mono text-mist/40">© 2026 DeepSea Guardian. Protecting Earth's Oceans.</p>
-          <div className="flex items-center gap-5">
-            {["Privacy", "Terms", "Data License"].map((i) => (
-              <span key={i} className="text-[0.68rem] text-mist/35 hover:text-mist transition-colors cursor-pointer">{i}</span>
-            ))}
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto mt-12 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs text-mist/40 font-mono">
+        <div>© 2026 DeepSea Guardian. All rights reserved.</div>
+        <div className="mt-2 sm:mt-0">Earth Ocean Monitoring System</div>
       </div>
     </footer>
   );

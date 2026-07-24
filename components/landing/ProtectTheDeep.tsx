@@ -1,145 +1,90 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import { motion } from "framer-motion";
 
 const BiolumScene = dynamic(() => import("@/components/3d/BiolumScene"), { ssr: false });
 
-const TESTIMONIALS = [
-  {
-    quote: "The deep sea is the largest environment on our planet. Yet we know less about it than we do about the surface of Mars.",
-    author: "Dr. Sylvia Earle",
-    role: "Marine Biologist & Ocean Activist",
-    emoji: "🌊",
-  },
-  {
-    quote: "No ocean, no life. No blue, no green. The ocean is the life support system of our planet.",
-    author: "Sylvia Earle",
-    role: "National Geographic Explorer",
-    emoji: "🐳",
-  },
-  {
-    quote: "In every walk with nature, one receives far more than he seeks — and in the ocean, that is multiplied a thousandfold.",
-    author: "Jacques Cousteau",
-    role: "Legendary Ocean Explorer",
-    emoji: "🤿",
-  },
-];
-
 export default function ProtectTheDeep() {
   return (
-    <section className="relative py-32 overflow-hidden" id="why" style={{
-      background: "linear-gradient(180deg, #050E1A 0%, #05182F 50%, #050E1A 100%)"
-    }}>
-      {/* 3D Bioluminescent deep ocean background */}
-      <div className="absolute inset-0">
-        <BiolumScene height="h-full" />
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden" style={{ background: "linear-gradient(180deg, #040D14 0%, #071829 50%, #040D14 100%)" }}>
+      {/* 3D Ambient Bioluminescent background */}
+      <div className="absolute inset-0 z-0 opacity-30">
+        <Suspense fallback={null}>
+          <BiolumScene height="h-full" />
+        </Suspense>
       </div>
-      <div className="absolute inset-0 bg-gradient-to-b from-abyss via-transparent to-abyss pointer-events-none" />
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-12">
-        {/* Label */}
+      {/* Depth vignette */}
+      <div
+        className="absolute inset-0 z-[1] pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse at center, transparent 30%, rgba(4,13,20,0.85) 85%)",
+        }}
+      />
+
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-28 text-center flex flex-col items-center">
         <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="text-center mb-6"
-        >
-          <span className="font-mono text-[0.65rem] tracking-[0.25em] text-seafoam uppercase">
-            Why It Matters
-          </span>
-        </motion.div>
-
-        {/* Headline */}
-        <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="font-display font-bold text-pearl text-center text-[clamp(2rem,4.5vw,3.6rem)] leading-tight mb-5 max-w-3xl mx-auto"
+          className="section-eyebrow text-foam/60 mb-8"
         >
-          The Ocean Sustains All Life on Earth
+          The Living Ocean
+        </motion.div>
+
+        <motion.h2
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, delay: 0.1 }}
+          className="font-display font-bold text-pearl leading-none tracking-tight mb-8"
+          style={{ fontSize: "clamp(3rem, 7vw, 6.5rem)", letterSpacing: "-0.04em" }}
+        >
+          We cannot protect<br />
+          <span className="gradient-text">what we cannot see.</span>
         </motion.h2>
 
         <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ delay: 0.2 }}
-          className="text-mist text-center max-w-2xl mx-auto mb-16 leading-relaxed"
+          transition={{ duration: 0.9, delay: 0.2 }}
+          className="font-body text-mist/70 max-w-2xl text-lg leading-relaxed mb-12"
         >
-          The ocean regulates climate, feeds billions, and generates half the oxygen we breathe. Protecting it isn't a choice — it's the most important thing we can do.
+          DeepSea Guardian bridges science, technology, and global policy — turning billions of ocean data points into actionable insights for Earth's final frontier.
         </motion.p>
 
-        {/* Stat pillars */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-20">
-          {[
-            { value: "50%",   label: "of Earth's oxygen comes from the ocean", color: "#4ECDC4" },
-            { value: "3B+",   label: "people rely on seafood as their primary protein", color: "#7FFFD4" },
-            { value: "30%",   label: "of the world's CO₂ is absorbed by the ocean", color: "#0096B7" },
-            { value: "90%",   label: "of the world's trade travels by sea", color: "#2ECC71" },
-          ].map((s, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="glass-ocean rounded-2xl p-6 text-center group hover:scale-105 transition-transform duration-300"
-            >
-              <div
-                className="font-display font-bold text-[2.2rem] leading-none"
-                style={{ color: s.color, textShadow: `0 0 20px ${s.color}55` }}
-              >
-                {s.value}
-              </div>
-              <div className="mt-2 text-xs text-mist leading-relaxed">{s.label}</div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Quotes */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          {TESTIMONIALS.map((t, i) => (
-            <motion.blockquote
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.12 }}
-              className="glass-ocean rounded-2xl p-7 flex flex-col"
-            >
-              <div className="text-3xl mb-4">{t.emoji}</div>
-              <p className="text-mist text-sm leading-relaxed italic flex-1">"{t.quote}"</p>
-              <footer className="mt-5 pt-4 border-t border-white/5">
-                <div className="text-pearl text-sm font-semibold">{t.author}</div>
-                <div className="text-mist/60 text-xs mt-0.5">{t.role}</div>
-              </footer>
-            </motion.blockquote>
-          ))}
-        </div>
-
-        {/* CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center"
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="flex flex-wrap items-center justify-center gap-5"
         >
-          <p className="text-mist mb-7 text-lg max-w-xl mx-auto">
-            Every data point we surface brings us closer to protecting what matters most.
-          </p>
-          <Link
+          <a
             href="/explorer"
-            className="inline-flex px-12 py-5 rounded-full font-bold text-abyss text-base transition-all duration-300 hover:scale-105"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full font-display font-semibold text-sm transition-all duration-300 hover:scale-105"
             style={{
-              background: "linear-gradient(135deg, #4ECDC4 0%, #0096B7 60%, #7FFFD4 100%)",
-              boxShadow: "0 0 50px -10px rgba(78,205,196,0.7)",
+              background: "linear-gradient(135deg, #85ECD4, #4ECDC4)",
+              color: "#040D14",
+              boxShadow: "0 0 35px rgba(133,236,212,0.25)",
             }}
           >
-            Explore the Living Ocean
-          </Link>
+            Launch Interactive Explorer →
+          </a>
+          <a
+            href="/dashboard"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full font-display font-semibold text-sm border transition-all duration-300 hover:border-foam/40"
+            style={{
+              borderColor: "rgba(242,240,237,0.15)",
+              color: "#F2F0ED",
+            }}
+          >
+            Open Ocean Watch
+          </a>
         </motion.div>
       </div>
     </section>
