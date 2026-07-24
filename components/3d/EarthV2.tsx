@@ -207,7 +207,7 @@ export default function EarthV2() {
         dpr={Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 2)}
       >
         <ambientLight intensity={0.12} color="#142036" />
-        <hemisphereLight skyColor="#d6e8ff" groundColor="#050a14" intensity={0.4} />
+        <hemisphereLight args={["#d6e8ff", "#050a14", 0.4]} />
         <directionalLight position={[5, 3, 5]} intensity={2.4} color="#ffffff" />
 
         <Stars radius={90} depth={40} count={1500} factor={3} saturation={0} fade speed={0} />

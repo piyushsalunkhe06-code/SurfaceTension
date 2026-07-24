@@ -671,7 +671,7 @@ export function OceanGlobe3D({
     >
       {/* Production solar lighting setup */}
       <ambientLight intensity={0.12} color="#142036" />
-      <hemisphereLight skyColor="#d6e8ff" groundColor="#050a14" intensity={0.4} />
+      <hemisphereLight args={["#d6e8ff", "#050a14", 0.4]} />
       <directionalLight
         position={[5, 3, 5]}
         intensity={2.4}
