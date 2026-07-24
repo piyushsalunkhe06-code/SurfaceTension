@@ -4,244 +4,274 @@ import { useRef, useMemo, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-// ── Deterministic Earth Texture (equirectangular projection) ──────────────────
-// lon → x: (lon + 180) / 360 * W
-// lat → y: (90 - lat) / 180 * H
-function buildEarthTexture(): THREE.CanvasTexture {
-  const W = 2048, H = 1024;
-  const c = document.createElement("canvas");
-  c.width = W; c.height = H;
-  const ctx = c.getContext("2d")!;
+// ── Improved Procedural Perlin/Simplex Noise Generator for Photorealistic Earth ──
+function createNoise() {
+  const p = new Uint8Array(512);
+  const permutation = [
+    151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,
+    8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,
+    35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,
+    134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,
+    55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,
+    18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,
+    250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,
+    189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,
+    172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,
+    228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,
+    107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,
+    138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180
+  ];
+  for (let i = 0; i < 256; i++) p[256 + i] = p[i] = permutation[i];
 
-  const gx = (lon: number) => (lon + 180) / 360 * W;
-  const gy = (lat: number) => (90 - lat) / 180 * H;
-
-  // ── 1. Deep Ocean Base ──
-  const og = ctx.createLinearGradient(0, 0, 0, H);
-  og.addColorStop(0.0,  "#012B50");
-  og.addColorStop(0.35, "#033B6A");
-  og.addColorStop(0.55, "#022B52");
-  og.addColorStop(1.0,  "#010F22");
-  ctx.fillStyle = og;
-  ctx.fillRect(0, 0, W, H);
-
-  // Shallow coastal tint overlay
-  ctx.globalAlpha = 0.15;
-  ctx.fillStyle = "#1A7BAA";
-  ctx.fillRect(0, gy(40), W, gy(20) - gy(40));
-  ctx.globalAlpha = 1.0;
-
-  // ── 2. Land ──
-  const drawLand = (paths: [number, number][][], fill = "#243F28", alpha = 1) => {
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = fill;
-    paths.forEach(pts => {
-      ctx.beginPath();
-      ctx.moveTo(gx(pts[0][0]), gy(pts[0][1]));
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(gx(pts[i][0]), gy(pts[i][1]));
-      ctx.closePath();
-      ctx.fill();
-    });
-    ctx.globalAlpha = 1.0;
-  };
-
-  // North America
-  drawLand([[
-    [-168,72],[-140,70],[-110,68],[-90,72],[-80,68],[-70,62],[-60,50],
-    [-55,47],[-60,44],[-66,42],[-72,42],[-74,40],[-76,35],[-80,25],
-    [-83,18],[-90,10],[-85,10],[-78,8],[-76,10],[-72,18],[-68,22],
-    [-62,25],[-60,30],[-58,38],[-60,44],[-56,47],[-60,50],
-    [-70,62],[-80,68],[-90,72],[-110,72],[-140,70],[-160,65],[-168,60],
-    [-165,52],[-170,56],[-168,72],
-  ]]);
-  // Mexico / Central America append
-  drawLand([[[-90,10],[-83,8],[-78,8],[-76,10],[-83,18],[-88,16],[-92,16],[-90,10]]]);
-
-  // Greenland (ice-grey)
-  drawLand([[
-    [-58,82],[-40,84],[-22,82],[-18,78],[-22,72],[-32,68],[-42,66],
-    [-52,66],[-58,72],[-58,78],[-58,82],
-  ]], "#D0E8F0", 0.9);
-
-  // South America
-  drawLand([[
-    [-80,12],[-74,8],[-68,4],[-62,-5],[-55,-14],[-48,-25],
-    [-45,-35],[-42,-45],[-50,-54],[-64,-56],[-68,-52],
-    [-72,-48],[-70,-38],[-68,-28],[-72,-20],[-78,-10],
-    [-80,0],[-80,12],
-  ]]);
-
-  // Europe
-  drawLand([[
-    [-10,36],[-5,38],[5,40],[15,44],[22,44],[30,46],
-    [38,47],[35,52],[28,58],[22,60],[15,62],[8,62],
-    [2,58],[-2,52],[-5,48],[-8,44],[-10,36],
-  ]]);
-  // Scandinavia
-  drawLand([[
-    [5,58],[8,62],[10,64],[12,68],[16,72],[22,70],[26,68],
-    [28,62],[24,58],[18,56],[12,56],[5,58],
-  ]]);
-  // British Isles
-  drawLand([[[-8,50],[-4,50],[-2,52],[0,54],[-2,58],[-4,56],[-6,56],[-8,54],[-6,52],[-8,50]]]);
-
-  // Africa
-  drawLand([[
-    [-18,37],[-5,38],[10,37],[22,32],[36,28],[42,22],[50,11],
-    [50,0],[42,-5],[40,-18],[36,-30],[28,-36],[18,-36],
-    [8,-28],[0,-18],[-8,-14],[-18,-5],[-20,5],
-    [-20,15],[-20,25],[-18,37],
-  ]]);
-  // Madagascar
-  drawLand([[
-    [44,-12],[46,-14],[50,-18],[50,-24],[48,-26],[44,-24],
-    [44,-18],[43,-14],[44,-12],
-  ]]);
-
-  // Asia main
-  drawLand([[
-    [28,44],[38,48],[48,50],[60,52],[80,56],[100,58],[120,58],[140,52],[145,48],
-    [142,42],[136,34],[128,26],[120,18],[108,12],[100,2],[96,-2],[104,-8],[108,-8],
-    [100,2],[90,10],[80,10],[70,18],[66,22],[60,28],[50,22],[42,22],[38,28],
-    [28,36],[28,44],
-  ]]);
-  // Indian subcontinent
-  drawLand([[
-    [66,22],[72,20],[80,18],[88,22],[84,10],[80,0],[76,-6],[72,0],[68,10],[66,22],
-  ]]);
-  // Southeast Asia
-  drawLand([[
-    [100,20],[106,16],[108,10],[104,2],[100,-2],[96,4],[100,12],[100,20],
-  ]]);
-  // Sumatra
-  drawLand([[[96,-2],[104,-8],[108,-8],[106,-4],[102,0],[98,2],[96,-2]]]);
-  // Java
-  drawLand([[[108,-8],[116,-8],[112,-8],[108,-8]]]);
-  // Borneo
-  drawLand([[[108,4],[110,0],[112,-2],[116,-2],[118,2],[114,4],[110,6],[108,4]]]);
-  // Japan
-  drawLand([[[130,32],[132,34],[134,36],[136,38],[138,40],[140,42],[140,40],[138,36],[134,32],[130,32]]]);
-  // Korean peninsula
-  drawLand([[[124,34],[126,38],[128,38],[130,36],[128,32],[124,34]]]);
-
-  // Australia
-  drawLand([[
-    [114,-22],[118,-18],[124,-16],[130,-14],[136,-14],[140,-18],[148,-22],
-    [152,-26],[152,-32],[148,-36],[142,-38],[134,-36],[128,-32],[120,-28],
-    [116,-26],[114,-22],
-  ]]);
-  // New Zealand north
-  drawLand([[[174,-36],[176,-38],[176,-42],[174,-44],[172,-42],[172,-38],[174,-36]]]);
-  // New Zealand south
-  drawLand([[[168,-46],[170,-44],[172,-44],[172,-46],[170,-48],[168,-48],[168,-46]]]);
-
-  // ── 3. Desert Overlay ──
-  drawLand([[
-    [(-18),37],[10,36],[22,32],[36,28],[42,22],
-    [50,11],[50,0],[42,-5],[36,-2],[28,4],
-    [14,10],[10,14],[0,18],[-14,20],[-18,22],[-18,37],
-  ]], "#8B6B14", 0.35); // Sahara / Sahel
-
-  drawLand([[[42,22],[50,22],[56,22],[60,24],[58,14],[50,14],[44,14],[42,18],[42,22]]], "#9A7020", 0.3); // Arabian
-
-  // ── 4. Desaturated Mountains ──
-  drawLand([
-    [[78,28],[90,30],[100,32],[98,28],[86,26],[78,26],[78,28]], // Himalayas
-    [[-76,-16],[-72,-12],[-68,-8],[-72,-24],[-74,-20],[-76,-16]], // Andes
-    [[-124,42],[-118,46],[-112,50],[-116,44],[-122,38],[-124,42]], // Rockies
-    [[0,44],[8,46],[14,44],[10,40],[4,42],[0,44]], // Alps
-  ], "#4A3D2E", 0.55);
-
-  // ── 5. Ice Caps ──
-  // Antarctic
-  ctx.fillStyle = "#C8DEF0";
-  ctx.fillRect(0, gy(-65), W, H - gy(-65));
-  ctx.globalAlpha = 0.35;
-  ctx.fillStyle = "#E4F0F8";
-  ctx.fillRect(0, gy(-75), W, gy(-65) - gy(-75));
-  ctx.globalAlpha = 1.0;
-
-  // Arctic Ocean Ice
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = "#C8DEF0";
-  ctx.beginPath();
-  ctx.ellipse(W * 0.5, gy(88), W * 0.35, 60, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1.0;
-
-  // ── 6. Coastal Shallow Tint ──
-  ctx.globalAlpha = 0.12;
-  ctx.fillStyle = "#25A0B5";
-  ctx.filter = "blur(8px)";
-  // Caribbean
-  ctx.beginPath(); ctx.ellipse(gx(-76), gy(20), 70, 30, 0, 0, Math.PI*2); ctx.fill();
-  // Mediterranean
-  ctx.beginPath(); ctx.ellipse(gx(18), gy(36), 100, 22, 0, 0, Math.PI*2); ctx.fill();
-  // South China Sea
-  ctx.beginPath(); ctx.ellipse(gx(112), gy(14), 60, 30, 0, 0, Math.PI*2); ctx.fill();
-  ctx.filter = "none";
-  ctx.globalAlpha = 1.0;
-
-  // ── 7. Latitude Lines (subtle) ──
-  ctx.globalAlpha = 0.04;
-  ctx.strokeStyle = "#7FFFD4";
-  ctx.lineWidth = 1;
-  for (let lat = -60; lat <= 60; lat += 30) {
-    ctx.beginPath();
-    ctx.moveTo(0, gy(lat)); ctx.lineTo(W, gy(lat));
-    ctx.stroke();
+  function fade(t: number) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  function lerp(t: number, a: number, b: number) { return a + t * (b - a); }
+  function grad(hash: number, x: number, y: number, z: number) {
+    const h = hash & 15;
+    const u = h < 8 ? x : y;
+    const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
   }
-  ctx.globalAlpha = 1.0;
 
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = THREE.ClampToEdgeWrapping;
-  tex.wrapT = THREE.ClampToEdgeWrapping;
-  return tex;
+  return function noise(x: number, y: number, z: number) {
+    const X = Math.floor(x) & 255;
+    const Y = Math.floor(y) & 255;
+    const Z = Math.floor(z) & 255;
+    x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+    const u = fade(x), v = fade(y), w = fade(z);
+    const A = p[X] + Y, AA = p[A] + Z, AB = p[A + 1] + Z;
+    const B = p[X + 1] + Y, BA = p[B] + Z, BB = p[B + 1] + Z;
+
+    return lerp(w, lerp(v, lerp(u, grad(p[AA], x, y, z),
+                                   grad(p[BA], x - 1, y, z)),
+                           lerp(u, grad(p[AB], x, y - 1, z),
+                                   grad(p[BB], x - 1, y - 1, z))),
+                   lerp(v, lerp(u, grad(p[AA + 1], x, y, z - 1),
+                                   grad(p[BA + 1], x - 1, y, z - 1)),
+                           lerp(u, grad(p[AB + 1], x, y - 1, z - 1),
+                                   grad(p[BB + 1], x - 1, y - 1, z - 1))));
+  };
 }
 
-function buildCloudTexture(): THREE.CanvasTexture {
+const noise3D = createNoise();
+
+function fbm(x: number, y: number, z: number, octaves = 5) {
+  let val = 0;
+  let freq = 1;
+  let amp = 0.5;
+  let maxAmp = 0;
+  for (let i = 0; i < octaves; i++) {
+    val += noise3D(x * freq, y * freq, z * freq) * amp;
+    maxAmp += amp;
+    freq *= 2.1;
+    amp *= 0.5;
+  }
+  return val / maxAmp;
+}
+
+// ── Build High-Res Photorealistic Textures ──────────────────────────────────
+function buildPhotorealisticTextures() {
+  const W = 2048, H = 1024;
+
+  // 1. Color Map Canvas
+  const canvasColor = document.createElement("canvas");
+  canvasColor.width = W; canvasColor.height = H;
+  const ctxC = canvasColor.getContext("2d")!;
+  const imgDataC = ctxC.createImageData(W, H);
+
+  // 2. Specular Map Canvas (White = glossy ocean, Black = matte land)
+  const canvasSpec = document.createElement("canvas");
+  canvasSpec.width = W; canvasSpec.height = H;
+  const ctxS = canvasSpec.getContext("2d")!;
+  const imgDataS = ctxS.createImageData(W, H);
+
+  // 3. Bump Map Canvas (Elevations)
+  const canvasBump = document.createElement("canvas");
+  canvasBump.width = W; canvasBump.height = H;
+  const ctxB = canvasBump.getContext("2d")!;
+  const imgDataB = ctxB.createImageData(W, H);
+
+  for (let y = 0; y < H; y++) {
+    const lat = (0.5 - y / H) * Math.PI; // -PI/2 to PI/2
+    const sinLat = Math.sin(lat);
+    const cosLat = Math.cos(lat);
+
+    for (let x = 0; x < W; x++) {
+      const lon = (x / W) * Math.PI * 2; // 0 to 2PI
+      const nx = cosLat * Math.cos(lon);
+      const ny = sinLat;
+      const nz = cosLat * Math.sin(lon);
+
+      // Continent base noise
+      let n = fbm(nx * 1.4 + 10, ny * 1.4 + 10, nz * 1.4 + 10, 6);
+      
+      // Broad continent shaping (raise Americas, Eurasia, Africa, Australia)
+      // Masking Antarctica & Arctic
+      const absLat = Math.abs(lat / (Math.PI / 2));
+
+      // Land threshold: n > 0.04 is land
+      const isLand = n > 0.04 && absLat < 0.88;
+      const isIceCap = absLat >= 0.82;
+
+      const idx = (y * W + x) * 4;
+
+      if (isIceCap) {
+        // Snow / Ice Cap
+        imgDataC.data[idx]     = 230; // R
+        imgDataC.data[idx + 1] = 240; // G
+        imgDataC.data[idx + 2] = 248; // B
+        imgDataC.data[idx + 3] = 255;
+
+        // Ice specular reflection (slightly glossy)
+        imgDataS.data[idx]     = 100;
+        imgDataS.data[idx + 1] = 100;
+        imgDataS.data[idx + 2] = 100;
+        imgDataS.data[idx + 3] = 255;
+
+        imgDataB.data[idx]     = 180;
+        imgDataB.data[idx + 1] = 180;
+        imgDataB.data[idx + 2] = 180;
+        imgDataB.data[idx + 3] = 255;
+      } else if (isLand) {
+        // Continent Elevation gradient (Coastal Green -> Mountain Brown/Slate)
+        const elevation = (n - 0.04) / 0.45; // 0 to 1
+        
+        let r = 0, g = 0, b = 0;
+        const latAbsDeg = Math.abs(lat * (180 / Math.PI));
+
+        if (latAbsDeg < 25 && elevation < 0.25 && (x > W * 0.45 && x < W * 0.65)) {
+          // Sahara / Arabian desert region tint
+          r = 180 + Math.floor(elevation * 50);
+          g = 145 + Math.floor(elevation * 30);
+          b = 90;
+        } else if (elevation < 0.35) {
+          // Lush Forest & Grasslands
+          r = Math.floor(25 + elevation * 40);
+          g = Math.floor(75 + elevation * 60);
+          b = Math.floor(35 + elevation * 20);
+        } else if (elevation < 0.65) {
+          // Higher hills / dry plateau
+          r = Math.floor(90 + elevation * 50);
+          g = Math.floor(80 + elevation * 30);
+          b = Math.floor(55 + elevation * 15);
+        } else {
+          // Mountain Peaks (rocky slate/snow)
+          r = Math.floor(140 + elevation * 80);
+          g = Math.floor(140 + elevation * 80);
+          b = Math.floor(150 + elevation * 90);
+        }
+
+        imgDataC.data[idx]     = r;
+        imgDataC.data[idx + 1] = g;
+        imgDataC.data[idx + 2] = b;
+        imgDataC.data[idx + 3] = 255;
+
+        // Land is matte (No specular shine)
+        imgDataS.data[idx]     = 0;
+        imgDataS.data[idx + 1] = 0;
+        imgDataS.data[idx + 2] = 0;
+        imgDataS.data[idx + 3] = 255;
+
+        // Bump height
+        const bumpVal = Math.min(255, Math.floor(elevation * 255));
+        imgDataB.data[idx]     = bumpVal;
+        imgDataB.data[idx + 1] = bumpVal;
+        imgDataB.data[idx + 2] = bumpVal;
+        imgDataB.data[idx + 3] = 255;
+      } else {
+        // Deep Ocean to Coastal Water Gradient
+        const distToCoast = (0.04 - n);
+        const isShallow = distToCoast < 0.035;
+
+        let r = 0, g = 0, b = 0;
+        if (isShallow) {
+          // Shallow coastal shelf turquoise (#126B88 to #083E63)
+          const factor = distToCoast / 0.035;
+          r = Math.floor(18 * (1 - factor) + 4 * factor);
+          g = Math.floor(107 * (1 - factor) + 32 * factor);
+          b = Math.floor(136 * (1 - factor) + 70 * factor);
+        } else {
+          // Deep Abyss Blue (#02132B to #062247)
+          r = 2;
+          g = 18;
+          b = 45;
+        }
+
+        imgDataC.data[idx]     = r;
+        imgDataC.data[idx + 1] = g;
+        imgDataC.data[idx + 2] = b;
+        imgDataC.data[idx + 3] = 255;
+
+        // Oceans are highly reflective (Specular gloss)
+        imgDataS.data[idx]     = 240;
+        imgDataS.data[idx + 1] = 240;
+        imgDataS.data[idx + 2] = 240;
+        imgDataS.data[idx + 3] = 255;
+
+        // Ocean surface is smooth
+        imgDataB.data[idx]     = 0;
+        imgDataB.data[idx + 1] = 0;
+        imgDataB.data[idx + 2] = 0;
+        imgDataB.data[idx + 3] = 255;
+      }
+    }
+  }
+
+  ctxC.putImageData(imgDataC, 0, 0);
+  ctxS.putImageData(imgDataS, 0, 0);
+  ctxB.putImageData(imgDataB, 0, 0);
+
+  const colorTex = new THREE.CanvasTexture(canvasColor);
+  const specTex  = new THREE.CanvasTexture(canvasSpec);
+  const bumpTex  = new THREE.CanvasTexture(canvasBump);
+
+  colorTex.wrapS = colorTex.wrapT = THREE.ClampToEdgeWrapping;
+  specTex.wrapS  = specTex.wrapT  = THREE.ClampToEdgeWrapping;
+  bumpTex.wrapS  = bumpTex.wrapT  = THREE.ClampToEdgeWrapping;
+
+  return { colorTex, specTex, bumpTex };
+}
+
+// ── Swirling Photorealistic Cloud Texture ───────────────────────────────────
+function buildPhotorealisticClouds() {
   const W = 1024, H = 512;
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const ctx = c.getContext("2d")!;
-  ctx.clearRect(0, 0, W, H);
+  const imgData = ctx.createImageData(W, H);
 
-  // Fixed cloud band positions (realistic weather patterns)
-  const bands = [
-    { y: 0.12, spread: 0.05, alpha: 0.2  }, // polar front
-    { y: 0.28, spread: 0.07, alpha: 0.18 }, // N mid-lat
-    { y: 0.45, spread: 0.04, alpha: 0.12 }, // ITCZ
-    { y: 0.62, spread: 0.07, alpha: 0.16 }, // S mid-lat
-    { y: 0.82, spread: 0.06, alpha: 0.18 }, // southern front
-  ];
+  for (let y = 0; y < H; y++) {
+    const lat = (0.5 - y / H) * Math.PI;
+    const sinLat = Math.sin(lat);
+    const cosLat = Math.cos(lat);
 
-  // Seed-based deterministic cloud patches
-  let seed = 42;
-  const rand = () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; };
+    for (let x = 0; x < W; x++) {
+      const lon = (x / W) * Math.PI * 2;
+      const nx = cosLat * Math.cos(lon);
+      const ny = sinLat;
+      const nz = cosLat * Math.sin(lon);
 
-  bands.forEach(band => {
-    const n = 60 + Math.floor(rand() * 40);
-    for (let i = 0; i < n; i++) {
-      const x = rand() * W;
-      const y = (band.y + (rand() - 0.5) * band.spread * 2) * H;
-      const rx = 20 + rand() * 60;
-      const ry = 6 + rand() * 14;
-      const rot = (rand() - 0.5) * 0.5;
-      ctx.globalAlpha = band.alpha * (0.5 + rand() * 0.5);
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath();
-      ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2);
-      ctx.fill();
+      // Cloud noise with spiral wind sway
+      let cn = fbm(nx * 2.5 + 40, ny * 2.5 + 40, nz * 2.5 + 40, 5);
+      cn = Math.pow(Math.max(0, cn - 0.08), 1.4);
+
+      const idx = (y * W + x) * 4;
+      const alpha = Math.min(230, Math.floor(cn * 320));
+
+      imgData.data[idx]     = 255;
+      imgData.data[idx + 1] = 255;
+      imgData.data[idx + 2] = 255;
+      imgData.data[idx + 3] = alpha;
     }
-  });
-  ctx.globalAlpha = 1.0;
+  }
 
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = THREE.RepeatWrapping;
-  return tex;
+  ctx.putImageData(imgData, 0, 0);
+  const cloudTex = new THREE.CanvasTexture(c);
+  cloudTex.wrapS = THREE.RepeatWrapping;
+  cloudTex.wrapT = THREE.ClampToEdgeWrapping;
+  return cloudTex;
 }
 
-// ── World-Space Atmosphere Shader ──
+// ── Realistic Atmosphere Rayleigh Shader ────────────────────────────────────
 const atmoVert = `
   varying vec3 vWorldNormal;
   varying vec3 vViewDir;
@@ -257,25 +287,22 @@ const atmoFrag = `
   varying vec3 vWorldNormal;
   varying vec3 vViewDir;
   uniform vec3 glowColor;
-  uniform float intensity;
   void main() {
-    float rim = 1.0 - max(dot(vWorldNormal, vViewDir), 0.0);
-    rim = pow(rim, 2.8) * intensity;
-    gl_FragColor = vec4(glowColor, rim);
+    float intensity = pow(0.68 - dot(vWorldNormal, vViewDir), 2.5);
+    gl_FragColor = vec4(glowColor, intensity * 0.95);
   }
 `;
 
-// ── Star Field ──
-function Stars({ count = 1500 }: { count?: number }) {
-  const pts = useRef<THREE.Points>(null);
+// ── Starfield background ───────────────────────────────────────────────────
+function Stars({ count = 1200 }: { count?: number }) {
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
-    let s = 1337;
-    const r = () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+    let seed = 77;
+    const r = () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; };
     for (let i = 0; i < count; i++) {
       const theta = r() * Math.PI * 2;
       const phi   = Math.acos(2 * r() - 1);
-      const rad   = 45 + r() * 15;
+      const rad   = 40 + r() * 10;
       arr[i*3]   = rad * Math.sin(phi) * Math.cos(theta);
       arr[i*3+1] = rad * Math.sin(phi) * Math.sin(theta);
       arr[i*3+2] = rad * Math.cos(phi);
@@ -284,98 +311,84 @@ function Stars({ count = 1500 }: { count?: number }) {
   }, [count]);
 
   return (
-    <points ref={pts}>
+    <points>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial color="#E8F4FD" size={0.06} transparent opacity={0.7} sizeAttenuation />
+      <pointsMaterial color="#E2F1F8" size={0.07} transparent opacity={0.65} sizeAttenuation />
     </points>
   );
 }
 
-// ── Earth Component ────────────────────────────────────────
-function Earth({ scrollProgress }: { scrollProgress: React.MutableRefObject<number> }) {
+// ── Main Earth Sphere ───────────────────────────────────────────────────────
+function EarthMesh() {
   const groupRef  = useRef<THREE.Group>(null);
   const cloudsRef = useRef<THREE.Mesh>(null);
   const mouseTarget = useRef({ x: 0, y: 0 });
   const mouseCurrent = useRef({ x: 0, y: 0 });
-  const autoRotY  = useRef(0);
 
-  const earthTex = useMemo(() => buildEarthTexture(), []);
-  const cloudTex = useMemo(() => buildCloudTexture(), []);
+  const { colorTex, specTex, bumpTex } = useMemo(() => buildPhotorealisticTextures(), []);
+  const cloudTex = useMemo(() => buildPhotorealisticClouds(), []);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      mouseTarget.current.x = (e.clientX / window.innerWidth  - 0.5) * 2;
+      mouseTarget.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
       mouseTarget.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
     };
     window.addEventListener("mousemove", onMove, { passive: true });
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
-  useFrame(({ camera }, delta) => {
-    // Smooth mouse
-    mouseCurrent.current.x += (mouseTarget.current.x - mouseCurrent.current.x) * 0.04;
-    mouseCurrent.current.y += (mouseTarget.current.y - mouseCurrent.current.y) * 0.04;
-
-    // Auto rotation
-    autoRotY.current += delta * 0.06;
-
-    const dive = scrollProgress.current;
+  useFrame((_, delta) => {
+    mouseCurrent.current.x += (mouseTarget.current.x - mouseCurrent.current.x) * 0.03;
+    mouseCurrent.current.y += (mouseTarget.current.y - mouseCurrent.current.y) * 0.03;
 
     if (groupRef.current) {
-      groupRef.current.rotation.y = autoRotY.current + mouseCurrent.current.x * 0.25;
-      groupRef.current.rotation.x = mouseCurrent.current.y * 0.1 * (1 - dive);
-
-      // Dive effect: zoom in + push up
-      const s = 1 + dive * 1.8;
-      groupRef.current.scale.setScalar(s);
-      groupRef.current.position.y = -dive * 1.5;
+      groupRef.current.rotation.y += delta * 0.04;
+      groupRef.current.rotation.y += mouseCurrent.current.x * 0.002;
+      groupRef.current.rotation.x = mouseCurrent.current.y * 0.08;
     }
 
     if (cloudsRef.current) {
-      cloudsRef.current.rotation.y += delta * 0.035;
+      cloudsRef.current.rotation.y += delta * 0.055;
     }
-
-    // Smooth camera zoom (single source of truth)
-    const targetZ = 5.2 - dive * 2.8;
-    camera.position.z += (targetZ - camera.position.z) * 0.07;
-    camera.position.y += (-dive * 0.4 - camera.position.y) * 0.07;
   });
 
   return (
     <group ref={groupRef}>
-      {/* Main Earth sphere */}
+      {/* Ocean + Land Earth Sphere with Specular Sun Reflections & Bump maps */}
       <mesh>
-        <sphereGeometry args={[1.6, 96, 96]} />
-        <meshStandardMaterial
-          map={earthTex}
-          roughness={0.55}
-          metalness={0.02}
+        <sphereGeometry args={[1.8, 96, 96]} />
+        <meshPhongMaterial
+          map={colorTex}
+          specularMap={specTex}
+          bumpMap={bumpTex}
+          bumpScale={0.03}
+          specular={new THREE.Color("#60A5FA")}
+          shininess={25}
         />
       </mesh>
 
-      {/* Cloud layer */}
+      {/* Cloud Sphere */}
       <mesh ref={cloudsRef}>
-        <sphereGeometry args={[1.628, 64, 64]} />
+        <sphereGeometry args={[1.825, 64, 64]} />
         <meshStandardMaterial
           map={cloudTex}
           transparent
-          opacity={0.38}
+          opacity={0.55}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
 
-      {/* Inner atmosphere glow (tight, ocean blue) */}
+      {/* Inner Ocean Atmosphere Rim */}
       <mesh>
-        <sphereGeometry args={[1.68, 48, 48]} />
+        <sphereGeometry args={[1.88, 48, 48]} />
         <shaderMaterial
           vertexShader={atmoVert}
           fragmentShader={atmoFrag}
           uniforms={{
-            glowColor: { value: new THREE.Color("#1E90C8") },
-            intensity: { value: 0.9 },
+            glowColor: { value: new THREE.Color("#1B7DA6") },
           }}
           blending={THREE.AdditiveBlending}
           side={THREE.FrontSide}
@@ -384,15 +397,14 @@ function Earth({ scrollProgress }: { scrollProgress: React.MutableRefObject<numb
         />
       </mesh>
 
-      {/* Outer atmosphere halo */}
-      <mesh scale={1.25}>
-        <sphereGeometry args={[1.6, 32, 32]} />
+      {/* Outer Atmosphere Glow Halo */}
+      <mesh scale={1.22}>
+        <sphereGeometry args={[1.8, 32, 32]} />
         <shaderMaterial
           vertexShader={atmoVert}
           fragmentShader={atmoFrag}
           uniforms={{
-            glowColor: { value: new THREE.Color("#2EC4E0") },
-            intensity: { value: 1.4 },
+            glowColor: { value: new THREE.Color("#4ECDC4") },
           }}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
@@ -404,24 +416,21 @@ function Earth({ scrollProgress }: { scrollProgress: React.MutableRefObject<numb
   );
 }
 
-// ── Public Export ──────────────────────────────────────────
-export default function EarthV2({ scrollProgress }: {
-  scrollProgress: React.MutableRefObject<number>;
-}) {
+// ── Public Export ───────────────────────────────────────────────────────────
+export default function EarthV2() {
   return (
     <Canvas
-      dpr={[1, 2]}
-      camera={{ position: [0, 0, 5.2], fov: 42 }}
+      dpr={[1, 1.75]}
+      camera={{ position: [0, 0, 5.0], fov: 42 }}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
     >
-      <ambientLight intensity={0.18} />
-      {/* Sun from upper-right */}
-      <directionalLight position={[6, 3, 4]}   intensity={2.2} color="#FFF5E0" />
-      {/* Subtle ocean-side fill */}
-      <pointLight      position={[-5, -2, -3]} intensity={0.3} color="#0A5FA0" />
+      {/* Sunlight direction */}
+      <ambientLight intensity={0.25} color="#082038" />
+      <directionalLight position={[6, 3, 5]} intensity={2.6} color="#FFF8E7" />
+      <pointLight position={[-6, -3, -4]} intensity={0.4} color="#0E6B8A" />
 
-      <Stars count={1800} />
-      <Earth scrollProgress={scrollProgress} />
+      <Stars count={1200} />
+      <EarthMesh />
     </Canvas>
   );
 }
