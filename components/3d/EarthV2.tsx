@@ -1,261 +1,199 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { useTexture, Stars, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
-// True Geographic Polygon Data for Photorealistic Earth Render
-const CONTINENT_POLYGONS: { points: [number, number][]; color: string; shelfColor: string }[] = [
-  // North America
-  {
-    color: "#27482D",
-    shelfColor: "#10637A",
-    points: [
-      [-168, 65], [-160, 71], [-140, 69], [-120, 75], [-90, 78], [-75, 73], [-60, 60],
-      [-55, 48], [-65, 44], [-75, 35], [-80, 25], [-90, 16], [-100, 16], [-105, 20],
-      [-118, 32], [-124, 40], [-130, 50], [-150, 60], [-168, 65]
-    ],
-  },
-  // South America
-  {
-    color: "#224A2A",
-    shelfColor: "#0F5F78",
-    points: [
-      [-78, 12], [-70, 12], [-60, 8], [-50, -2], [-35, -5], [-37, -15], [-48, -28],
-      [-65, -42], [-75, -52], [-74, -45], [-72, -30], [-78, -15], [-81, -5], [-78, 12]
-    ],
-  },
-  // Africa
-  {
-    color: "#2B472E",
-    shelfColor: "#126882",
-    points: [
-      [-17, 32], [10, 37], [25, 32], [32, 31], [34, 27], [43, 12], [51, 11],
-      [42, -5], [36, -20], [33, -33], [25, -34], [18, -34], [12, -15], [9, 4],
-      [-15, 12], [-17, 21], [-17, 32]
-    ],
-  },
-  // Europe
-  {
-    color: "#2C4C30",
-    shelfColor: "#14708A",
-    points: [
-      [-10, 36], [-10, 43], [-2, 44], [-5, 48], [4, 52], [0, 58], [5, 62],
-      [15, 56], [25, 60], [30, 70], [45, 68], [55, 60], [40, 45], [25, 40],
-      [15, 38], [5, 43], [-10, 36]
-    ],
-  },
-  // Asia
-  {
-    color: "#305033",
-    shelfColor: "#157792",
-    points: [
-      [55, 60], [70, 72], [100, 77], [130, 72], [170, 66], [180, 65], [160, 55],
-      [140, 50], [130, 40], [120, 30], [110, 20], [105, 10], [98, 10], [90, 22],
-      [78, 8], [72, 20], [60, 25], [50, 30], [45, 40], [55, 60]
-    ],
-  },
-  // Australia
-  {
-    color: "#334D35",
-    shelfColor: "#136A84",
-    points: [
-      [114, -22], [125, -14], [136, -12], [142, -11], [150, -22], [153, -28],
-      [150, -37], [138, -35], [130, -32], [116, -35], [114, -22]
-    ],
-  },
-  // Greenland
-  {
-    color: "#E2EEF2",
-    shelfColor: "#7AB0C4",
-    points: [
-      [-55, 60], [-40, 65], [-20, 70], [-20, 82], [-50, 83], [-70, 76], [-55, 60]
-    ],
-  },
-];
+// ─── Shader identical to explorer, adapted for hero (no click handler) ───────
 
-function buildPhotorealisticEarthTex(): { map: THREE.CanvasTexture; specular: THREE.CanvasTexture } {
-  const W = 2048;
-  const H = 1024;
+const EARTH_VERT = `
+  uniform float uTime;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+    vPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
 
-  const mapCanvas = document.createElement("canvas");
-  mapCanvas.width = W; mapCanvas.height = H;
-  const mapCtx = mapCanvas.getContext("2d")!;
+const EARTH_FRAG = `
+  uniform sampler2D uDayMap;
+  uniform sampler2D uNightMap;
+  uniform sampler2D uSpecMap;
+  uniform sampler2D uNormalMap;
+  uniform sampler2D uCloudsMap;
+  uniform vec3 uSunDirection;
+  uniform float uTime;
 
-  const specCanvas = document.createElement("canvas");
-  specCanvas.width = W; specCanvas.height = H;
-  const specCtx = specCanvas.getContext("2d")!;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
 
-  const gx = (lon: number) => ((lon + 180) / 360) * W;
-  const gy = (lat: number) => ((90 - lat) / 180) * H;
+  void main() {
+    vec4 dayColor   = texture2D(uDayMap, vUv);
+    vec4 nightColor = texture2D(uNightMap, vUv);
+    vec4 specMask   = texture2D(uSpecMap, vUv);
+    vec4 cloudColor = texture2D(uCloudsMap, vec2(vUv.x + uTime * 0.008, vUv.y));
+    vec3 normalMap  = texture2D(uNormalMap, vUv).rgb * 2.0 - 1.0;
+    vec3 pertNormal = normalize(vNormal + normalMap * 0.3);
 
-  // 1. Ocean Depth Bathymetry Gradient
-  const oceanGrad = mapCtx.createLinearGradient(0, 0, 0, H);
-  oceanGrad.addColorStop(0.0, "#010A17");
-  oceanGrad.addColorStop(0.2, "#021836");
-  oceanGrad.addColorStop(0.5, "#03284E");
-  oceanGrad.addColorStop(0.8, "#021531");
-  oceanGrad.addColorStop(1.0, "#010714");
-  mapCtx.fillStyle = oceanGrad;
-  mapCtx.fillRect(0, 0, W, H);
+    float sunDot    = dot(pertNormal, normalize(uSunDirection));
+    float dayFactor = smoothstep(-0.15, 0.25, sunDot);
+    vec3 ambientLight = vec3(0.015, 0.02, 0.035);
+    float diffuse   = max(sunDot, 0.0);
 
-  // Ocean Specular Map (White = Highly Reflective Water Surface)
-  specCtx.fillStyle = "#FFFFFF";
-  specCtx.fillRect(0, 0, W, H);
+    vec3 viewDir = normalize(cameraPosition - vPosition);
+    vec3 halfVec = normalize(normalize(uSunDirection) + viewDir);
+    float specular = pow(max(dot(pertNormal, halfVec), 0.0), 64.0) * specMask.r * 0.8;
 
-  // 2. Render True Geographic Landmass Polygons
-  CONTINENT_POLYGONS.forEach((cont) => {
-    mapCtx.fillStyle = cont.shelfColor;
-    mapCtx.filter = "blur(14px)";
-    mapCtx.beginPath();
-    cont.points.forEach(([lon, lat], i) => {
-      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
-      else mapCtx.lineTo(gx(lon), gy(lat));
-    });
-    mapCtx.closePath();
-    mapCtx.fill();
-    mapCtx.filter = "none";
+    vec3 dayFinal   = dayColor.rgb * (ambientLight + diffuse * vec3(1.0, 0.98, 0.95)) + vec3(specular);
+    vec3 nightFinal = nightColor.rgb * 1.6;
+    vec3 earthColor = mix(nightFinal, dayFinal, dayFactor);
 
-    mapCtx.fillStyle = cont.color;
-    mapCtx.beginPath();
-    cont.points.forEach(([lon, lat], i) => {
-      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
-      else mapCtx.lineTo(gx(lon), gy(lat));
-    });
-    mapCtx.closePath();
-    mapCtx.fill();
+    float cloudAlpha = cloudColor.r * 0.55 * (0.7 + 0.3 * dayFactor);
+    vec3 cloudLit    = vec3(1.0) * max(sunDot, 0.05) + ambientLight;
+    earthColor       = mix(earthColor, cloudLit, cloudAlpha);
 
-    specCtx.fillStyle = "#000000";
-    specCtx.beginPath();
-    cont.points.forEach(([lon, lat], i) => {
-      if (i === 0) specCtx.moveTo(gx(lon), gy(lat));
-      else specCtx.lineTo(gx(lon), gy(lat));
-    });
-    specCtx.closePath();
-    specCtx.fill();
-  });
+    float rim      = 1.0 - max(dot(vNormal, viewDir), 0.0);
+    float rimPow   = pow(rim, 2.8);
+    vec3 rimColor  = vec3(0.2, 0.55, 1.0) * rimPow * 0.4 * dayFactor;
+    earthColor    += rimColor;
 
-  // 3. Arid Desert Zones
-  mapCtx.fillStyle = "#B39562";
-  const drawDesert = (pts: [number, number][]) => {
-    mapCtx.beginPath();
-    pts.forEach(([lon, lat], i) => {
-      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
-      else mapCtx.lineTo(gx(lon), gy(lat));
-    });
-    mapCtx.closePath();
-    mapCtx.fill();
-  };
-  drawDesert([[-15, 30], [35, 30], [55, 25], [50, 15], [35, 12], [10, 15], [-15, 30]]);
-  drawDesert([[80, 45], [110, 48], [115, 40], [85, 38], [80, 45]]);
-  drawDesert([[118, -20], [140, -22], [138, -32], [118, -30], [118, -20]]);
+    gl_FragColor = vec4(earthColor, 1.0);
+  }
+`;
 
-  // 4. Major Fluvial Rivers
-  mapCtx.strokeStyle = "#4ECDC4";
-  mapCtx.lineWidth = 3.5;
-  const drawRiver = (pts: [number, number][]) => {
-    mapCtx.beginPath();
-    pts.forEach(([lon, lat], i) => {
-      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
-      else mapCtx.lineTo(gx(lon), gy(lat));
-    });
-    mapCtx.stroke();
-  };
-  drawRiver([[-75, -3], [-65, -3], [-54, -1]]);
-  drawRiver([[31, 3], [31, 15], [31, 31]]);
-  drawRiver([[-94, 46], [-90, 38], [-89, 29]]);
-  drawRiver([[100, 33], [112, 31], [121, 31]]);
-  drawRiver([[8, 48], [12, 50], [18, 48], [28, 45]]);
-  drawRiver([[15, -4], [22, -1], [25, 4]]);
-  drawRiver([[78, 30], [85, 26], [90, 23]]);
+const ATMO_VERT = `
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  void main() {
+    vNormal   = normalize(normalMatrix * normal);
+    vPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
 
-  // 5. Polar Ice Sheets
-  mapCtx.fillStyle = "#F0F7F9";
-  mapCtx.fillRect(0, 0, W, gy(72));
-  mapCtx.fillRect(0, gy(-65), W, H - gy(-65));
-  specCtx.fillStyle = "#222222";
-  specCtx.fillRect(0, 0, W, gy(72));
-  specCtx.fillRect(0, gy(-65), W, H - gy(-65));
+const ATMO_FRAG = `
+  uniform vec3 uSunDirection;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  void main() {
+    vec3 viewDir  = normalize(cameraPosition - vPosition);
+    float rim     = 1.0 - max(dot(vNormal, viewDir), 0.0);
+    float rimPow  = pow(rim, 3.5);
+    float sunDot  = dot(normalize(vNormal), normalize(uSunDirection));
+    float sunGlow = smoothstep(-0.4, 0.8, sunDot);
+    vec3 dayAtmo    = mix(vec3(0.25, 0.58, 1.0), vec3(0.8, 0.9, 1.0), sunGlow * 0.4);
+    vec3 shadowAtmo = vec3(0.05, 0.12, 0.30);
+    vec3 atmoColor  = mix(shadowAtmo, dayAtmo, sunGlow);
+    float alpha = rimPow * 0.7;
+    gl_FragColor = vec4(atmoColor, alpha);
+  }
+`;
 
-  const mapTex = new THREE.CanvasTexture(mapCanvas);
-  const specTex = new THREE.CanvasTexture(specCanvas);
+const T = {
+  day:    "/textures/earth-day.jpg",
+  night:  "/textures/earth-night.jpg",
+  spec:   "/textures/earth-specular.jpg",
+  normal: "/textures/earth-normal.jpg",
+  clouds: "/textures/earth-clouds.png",
+};
 
-  return { map: mapTex, specular: specTex };
-}
-
-function EarthMesh() {
-  const meshRef = useRef<THREE.Mesh>(null);
+function HeroEarth() {
+  const earthRef = useRef<THREE.Mesh>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
+  const timeRef  = useRef(0);
 
-  const { map, specular } = useMemo(() => buildPhotorealisticEarthTex(), []);
+  const [dayMap, nightMap, specMap, normalMap, cloudsMap] = useTexture([
+    T.day, T.night, T.spec, T.normal, T.clouds,
+  ]);
+
+  useMemo(() => {
+    [dayMap, nightMap, specMap, normalMap].forEach((t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 16; });
+    cloudsMap.colorSpace = THREE.NoColorSpace;
+    cloudsMap.anisotropy = 8;
+  }, [dayMap, nightMap, specMap, normalMap, cloudsMap]);
+
+  const sunDirection = useMemo(() => new THREE.Vector3(5, 3, 5).normalize(), []);
+
+  const earthUniforms = useMemo(() => ({
+    uDayMap:       { value: dayMap },
+    uNightMap:     { value: nightMap },
+    uSpecMap:      { value: specMap },
+    uNormalMap:    { value: normalMap },
+    uCloudsMap:    { value: cloudsMap },
+    uSunDirection: { value: sunDirection },
+    uTime:         { value: 0 },
+  }), [dayMap, nightMap, specMap, normalMap, cloudsMap, sunDirection]);
+
+  const atmoUniforms = useMemo(() => ({ uSunDirection: { value: sunDirection } }), [sunDirection]);
 
   useFrame((_, delta) => {
-    if (meshRef.current) meshRef.current.rotation.y += delta * 0.04;
-    if (cloudRef.current) cloudRef.current.rotation.y += delta * 0.06;
+    timeRef.current += delta;
+    if (earthUniforms.uTime) earthUniforms.uTime.value = timeRef.current * 0.5;
+    if (earthRef.current) earthRef.current.rotation.y += delta * 0.035;
+    if (cloudRef.current) cloudRef.current.rotation.y += delta * 0.05;
   });
-
-  const atmoVert = `
-    varying vec3 vNormal;
-    void main() {
-      vNormal = normalize(normalMatrix * normal);
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `;
-  const atmoFrag = `
-    varying vec3 vNormal;
-    void main() {
-      float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 2.2);
-      gl_FragColor = vec4(0.12, 0.68, 0.88, 1.0) * intensity;
-    }
-  `;
 
   return (
     <group>
-      {/* Globe */}
-      <mesh ref={meshRef}>
+      <mesh ref={earthRef}>
+        <sphereGeometry args={[2.0, 96, 96]} />
+        <shaderMaterial vertexShader={EARTH_VERT} fragmentShader={EARTH_FRAG} uniforms={earthUniforms} />
+      </mesh>
+
+      <mesh ref={cloudRef} scale={1.006}>
         <sphereGeometry args={[2.0, 64, 64]} />
-        <meshPhongMaterial
-          map={map}
-          specularMap={specular}
-          specular={new THREE.Color("#2EC4E0")}
-          shininess={30}
-        />
+        <meshStandardMaterial map={cloudsMap} transparent opacity={0.5} alphaMap={cloudsMap} blending={THREE.NormalBlending} depthWrite={false} />
       </mesh>
 
-      {/* Cloud layer */}
-      <mesh ref={cloudRef} scale={1.018}>
-        <sphereGeometry args={[2.0, 32, 32]} />
-        <meshStandardMaterial
-          color="#FFFFFF"
-          transparent
-          opacity={0.16}
-          blending={THREE.AdditiveBlending}
-        />
+      {/* Outer atmosphere */}
+      <mesh scale={1.1}>
+        <sphereGeometry args={[2.0, 48, 48]} />
+        <shaderMaterial vertexShader={ATMO_VERT} fragmentShader={ATMO_FRAG} uniforms={atmoUniforms} side={THREE.BackSide} transparent blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
 
-      {/* Atmosphere Glow */}
-      <mesh scale={1.22}>
+      {/* Inner rim atmosphere */}
+      <mesh scale={1.025}>
         <sphereGeometry args={[2.0, 32, 32]} />
-        <shaderMaterial
-          vertexShader={atmoVert}
-          fragmentShader={atmoFrag}
-          blending={THREE.AdditiveBlending}
-          side={THREE.BackSide}
-          transparent
-        />
+        <shaderMaterial vertexShader={ATMO_VERT} fragmentShader={ATMO_FRAG} uniforms={atmoUniforms} side={THREE.FrontSide} transparent blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
     </group>
+  );
+}
+
+function FallbackSphere() {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * 0.04; });
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[2.0, 32, 32]} />
+      <meshPhongMaterial color="#03284E" />
+    </mesh>
   );
 }
 
 export default function EarthV2() {
   return (
     <div className="w-full h-full">
-      <Canvas camera={{ position: [0, 0, 5.2], fov: 42 }} gl={{ antialias: true, alpha: true }}>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 3, 5]} intensity={2.2} color="#F0F8FF" />
-        <pointLight position={[-4, -2, -2]} intensity={0.5} color="#0096B7" />
-        <EarthMesh />
+      <Canvas
+        camera={{ position: [0, 0.5, 5.5], fov: 42, near: 0.1, far: 200 }}
+        gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+        dpr={Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 2)}
+      >
+        <ambientLight intensity={0.06} color="#1a2a4a" />
+        <directionalLight position={[5, 3, 5]} intensity={3.5} color="#FFF5E0" />
+        <pointLight position={[-8, -4, -6]} intensity={0.15} color="#203060" />
+
+        <Stars radius={80} depth={50} count={5000} factor={4} saturation={0} fade speed={0.3} />
+
+        <Suspense fallback={<FallbackSphere />}>
+          <HeroEarth />
+        </Suspense>
       </Canvas>
     </div>
   );
