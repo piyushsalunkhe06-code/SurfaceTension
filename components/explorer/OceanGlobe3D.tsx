@@ -1,32 +1,35 @@
 "use client";
 
-import { useRef, useMemo, useState } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
+import { USDZLoader } from "three/examples/jsm/loaders/USDZLoader.js";
+
+export type SurfaceType = "ocean" | "river" | "land";
 
 export interface ClickedCoordinateInfo {
   lat: number;
   lon: number;
   latFormatted: string;
   lonFormatted: string;
-  regionName: string;
-  depthMeters: number;
+  surfaceType: SurfaceType;
+  locationName: string;
+  elevationOrDepth: string;
   surfaceTemp: number;
-  deepTemp: number;
-  salinity: number;
-  oxygen: number;
-  healthScore: number;
-  pollutionIndex: number;
-  microplastics: number;
-  acousticNoise: number;
+  secondaryTemp?: number;
+  salinityOrNDVI: string;
+  oxygenOrMoisture: string;
+  healthOrRiskScore: number;
+  pollutionOrDeforestation: number;
+  microplasticsOrFlowRate: string;
   speciesList: string[];
   telemetryStatus: string;
   aiSummary: string;
   point3D: [number, number, number];
 }
 
-// Convert Lat/Lon to 3D Cartesian coordinates on sphere radius R
+// Convert Lat/Lon to 3D Vector on sphere radius R
 export function latLonToVector3(lat: number, lon: number, radius = 2.02): [number, number, number] {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
@@ -47,93 +50,231 @@ export function vector3ToLatLon(point: THREE.Vector3, radius = 2.0): { lat: numb
   return { lat, lon };
 }
 
-// Generate rich dynamic data for any clicked lat/lon coordinate on Earth
+// Helper to test if coordinate is Land, River, or Ocean
+export function classifyCoordinate(lat: number, lon: number): { surfaceType: SurfaceType; name: string } {
+  // 1. Major River Systems Check
+  if (lat >= -12 && lat <= 4 && lon >= -75 && lon <= -48) {
+    return { surfaceType: "river", name: "Amazon River & Basin System" };
+  }
+  if (lat >= 4 && lat <= 32 && lon >= 28 && lon <= 35) {
+    return { surfaceType: "river", name: "Nile River Fluvial Corridor" };
+  }
+  if (lat >= 28 && lat <= 48 && lon >= -110 && lon <= -88) {
+    return { surfaceType: "river", name: "Mississippi-Missouri River Watershed" };
+  }
+  if (lat >= 24 && lat <= 35 && lon >= 100 && lon <= 123) {
+    return { surfaceType: "river", name: "Yangtze (Chang Jiang) River Waterway" };
+  }
+  if (lat >= 44 && lat <= 52 && lon >= 6 && lon <= 30) {
+    return { surfaceType: "river", name: "Danube & Rhine European River Network" };
+  }
+  if (lat >= -10 && lat <= 6 && lon >= 12 && lon <= 30) {
+    return { surfaceType: "river", name: "Congo Equatorial River System" };
+  }
+  if (lat >= 20 && lat <= 28 && lon >= 75 && lon <= 92) {
+    return { surfaceType: "river", name: "Ganges-Brahmaputra River Delta" };
+  }
+  if (lat >= 23 && lat <= 36 && lon >= 67 && lon <= 76) {
+    return { surfaceType: "river", name: "Indus River Fluvial Basin" };
+  }
+  if (lat >= 10 && lat <= 30 && lon >= 98 && lon <= 108) {
+    return { surfaceType: "river", name: "Mekong River System" };
+  }
+  if (lat >= 45 && lat <= 60 && lon >= 38 && lon <= 55) {
+    return { surfaceType: "river", name: "Volga River Basin" };
+  }
+
+  // 2. Continental Landmass Check
+  const isAntarctica = lat < -60;
+  const isGreenland = lat > 60 && lon > -70 && lon < -10;
+  const isNorthAmerica = lat > 12 && lat < 75 && lon > -170 && lon < -50;
+  const isSouthAmerica = lat > -56 && lat < 12 && lon > -82 && lon < -34;
+  const isEurasia = lat > 5 && lat < 75 && lon > -10 && lon < 180;
+  const isAfrica = lat > -35 && lat < 38 && lon > -18 && lon < 52;
+  const isAustralia = lat > -45 && lat < -10 && lon > 110 && lon < 155;
+
+  if (isAntarctica) return { surfaceType: "land", name: "Antarctic Ice Plateau" };
+  if (isGreenland) return { surfaceType: "land", name: "Greenland Glacier Sheet" };
+  if (isNorthAmerica) {
+    if (lat > 35) return { surfaceType: "land", name: "North American Great Plains / Boreal" };
+    return { surfaceType: "land", name: "Sierra Madre & Central Plateau" };
+  }
+  if (isSouthAmerica) {
+    if (lat < -30) return { surfaceType: "land", name: "Patagonian Steppe & Andes" };
+    return { surfaceType: "land", name: "Amazonian Continental Canopy" };
+  }
+  if (isAfrica) {
+    if (lat > 15) return { surfaceType: "land", name: "Sahara Desert Arid Plateau" };
+    return { surfaceType: "land", name: "Sub-Saharan Savannah & Highlands" };
+  }
+  if (isEurasia) {
+    if (lat > 25 && lat < 38 && lon > 70 && lon < 100) return { surfaceType: "land", name: "Himalayan High Alpine Range" };
+    if (lat > 15 && lat < 35 && lon > 35 && lon < 65) return { surfaceType: "land", name: "Arabian Peninsula Desert" };
+    if (lat > 50) return { surfaceType: "land", name: "Siberian Taiga Boreal Zone" };
+    return { surfaceType: "land", name: "Eurasian Steppe & Temperate Zone" };
+  }
+  if (isAustralia) {
+    if (lon < 135) return { surfaceType: "land", name: "Australian Outback Arid Shield" };
+    return { surfaceType: "land", name: "Great Dividing Range" };
+  }
+
+  // 3. Marine Ocean Basins
+  if (lat > 65) return { surfaceType: "ocean", name: "Arctic Ocean Basin" };
+  if (lat < -55) return { surfaceType: "ocean", name: "Southern Antarctic Ocean Current" };
+  if (lon > 135 && lon < 155 && lat > 10 && lat < 25) return { surfaceType: "ocean", name: "Mariana Hadal Trench Sector" };
+  if (lon > -180 && lon < -100) return { surfaceType: "ocean", name: "Pacific Ocean Gyre" };
+  if (lon > -80 && lon < -10) return { surfaceType: "ocean", name: "North Atlantic Ridge Sector" };
+  if (lon > 40 && lon < 110) return { surfaceType: "ocean", name: "Indian Ocean Basin" };
+  if (lon > -10 && lon < 40 && lat > 30 && lat < 46) return { surfaceType: "ocean", name: "Mediterranean Sea Deep Basin" };
+
+  return { surfaceType: "ocean", name: "Global Oceanic Trench & Abyssal Plain" };
+}
+
+// Generate realistic telemetric data based on exact SurfaceType (River vs Land vs Ocean)
 export function generateCoordinateData(lat: number, lon: number, point3D: [number, number, number]): ClickedCoordinateInfo {
   const latFormatted = `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? "N" : "S"}`;
   const lonFormatted = `${Math.abs(lon).toFixed(2)}° ${lon >= 0 ? "E" : "W"}`;
 
-  // Determine ocean basin or region from lat/lon
-  let regionName = "Open Abyssal Plain";
-  let baseDepth = -3800;
-  let surfaceTemp = 18.5;
-  let speciesList = ["Phytoplankton", "Lanternfish", "Pelagic Manta"];
+  const { surfaceType, name: locationName } = classifyCoordinate(lat, lon);
 
-  if (lat > 65) {
-    regionName = "Arctic Ocean Basin";
-    baseDepth = -2500;
-    surfaceTemp = -1.2;
-    speciesList = ["Bowhead Whale", "Arctic Cod", "Beluga Whale", "Ice Algae"];
-  } else if (lat < -55) {
-    regionName = "Southern Antarctic Current";
-    baseDepth = -4100;
-    surfaceTemp = 1.4;
-    speciesList = ["Antarctic Krill", "Emperor Penguin", "Blue Whale", "Colossal Squid"];
-  } else if (lon > 135 && lon < 155 && lat > 10 && lat < 25) {
-    regionName = "Mariana Hadal Trench Sector";
-    baseDepth = -10920;
-    surfaceTemp = 28.2;
-    speciesList = ["Xenophyophore", "Mariana Snailfish", "Giant Amphipod"];
-  } else if (lon > -180 && lon < -100 && lat > -20 && lat < 30) {
-    regionName = "Central Pacific Ocean Gyre";
-    baseDepth = -4500;
-    surfaceTemp = 24.8;
-    speciesList = ["Sperm Whale", "Skipjack Tuna", "Pacific Flying Fish"];
-  } else if (lon > -80 && lon < -10 && lat > 0 && lat < 50) {
-    regionName = "North Atlantic Ridge Sector";
-    baseDepth = -3400;
-    surfaceTemp = 17.6;
-    speciesList = ["North Atlantic Right Whale", "Deep Hydrothermal Vents", "Deepwater Coral"];
-  } else if (lon > 40 && lon < 110 && lat > -30 && lat < 25) {
-    regionName = "Equatorial Indian Ocean";
-    baseDepth = -3890;
-    surfaceTemp = 27.4;
-    speciesList = ["Hawksbill Turtle", "Whale Shark", "Branching Acropora"];
-  } else if (lon > -10 && lon < 40 && lat > 30 && lat < 46) {
-    regionName = "Mediterranean Sea Deep Basin";
-    baseDepth = -1500;
-    surfaceTemp = 22.1;
-    speciesList = ["Monk Seal", "Fin Whale", "Posidonia Seagrass"];
-  } else if (lon > 100 && lon < 130 && lat > 0 && lat < 25) {
-    regionName = "South China Sea Coral Slope";
-    baseDepth = -1200;
-    surfaceTemp = 28.9;
-    speciesList = ["Green Sea Turtle", "Giant Clam", "Crown-of-Thorns Starfish"];
-  }
-
-  // Calculate synthetic variations based on exact lat/lon noise
   const hash = Math.sin(lat * 12.9898 + lon * 78.233) * 43758.5453;
   const hashFrac = hash - Math.floor(hash);
 
-  const depthMeters = baseDepth + Math.floor((hashFrac - 0.5) * 600);
-  const healthScore = Math.max(25, Math.min(95, Math.floor(65 + (hashFrac - 0.5) * 40)));
-  const pollutionIndex = Math.floor(100 - healthScore + hashFrac * 15);
-  const microplastics = Math.floor(800 + hashFrac * 3500);
-  const acousticNoise = Math.floor(45 + hashFrac * 40);
+  if (surfaceType === "river") {
+    const flowRates: Record<string, string> = {
+      "Amazon River & Basin System": "209,000 m³/s",
+      "Nile River Fluvial Corridor": "2,830 m³/s",
+      "Mississippi-Missouri River Watershed": "16,700 m³/s",
+      "Yangtze (Chang Jiang) River Waterway": "30,100 m³/s",
+      "Danube & Rhine European River Network": "6,500 m³/s",
+      "Congo Equatorial River System": "41,000 m³/s",
+      "Ganges-Brahmaputra River Delta": "38,000 m³/s",
+      "Indus River Fluvial Basin": "6,600 m³/s",
+      "Mekong River System": "16,000 m³/s",
+    };
+    const flowRate = flowRates[locationName] || `${Math.floor(4000 + hashFrac * 12000)} m³/s`;
+    const temp = parseFloat((22.4 + hashFrac * 6.5).toFixed(1));
+    const elevation = `+${Math.floor(45 + hashFrac * 350)} m`;
+    const health = Math.floor(55 + hashFrac * 30);
 
-  const deepTemp = 2.0 + hashFrac * 1.5;
-  const salinity = parseFloat((34.5 + hashFrac * 1.2).toFixed(2));
-  const oxygen = parseFloat((5.2 + hashFrac * 1.8).toFixed(2));
+    const speciesMap: Record<string, string[]> = {
+      "Amazon River & Basin System": ["Amazon River Dolphin (Boto)", "Arapaima (Pirarucu)", "Giant River Otter", "Electric Eel"],
+      "Nile River Fluvial Corridor": ["Nile Crocodile", "Nile Perch", "African Softshell Turtle", "Papyrus Sedge"],
+      "Mississippi-Missouri River Watershed": ["Alligator Gar", "American Paddlefish", "Snapping Turtle", "River Otter"],
+      "Yangtze (Chang Jiang) River Waterway": ["Chinese Sturgeon", "Finless Porpoise", "Giant Salamander"],
+      "Congo Equatorial River System": ["Goliath Tigerfish", "Congo Bichir", "African Manatee"],
+      "Ganges-Brahmaputra River Delta": ["Ganges River Dolphin", "Gharial Crocodile", "Hilsa Shad"],
+    };
+    const speciesList = speciesMap[locationName] || ["Freshwater Otter", "Yellow Catfish", "Riparian Heron", "River Trout"];
 
-  const aiSummary = `Telemetric scan at ${latFormatted}, ${lonFormatted} (${regionName}): Bathymetry calculated at ${Math.abs(depthMeters)}m. Ocean health index registered at ${healthScore}/100. Thermal surface gradient sits at ${surfaceTemp.toFixed(1)}°C with microplastic concentration estimated at ${microplastics} particles/m³. Primary bio-acoustic signatures match ${speciesList[0]} and localized planktonic activity.`;
+    return {
+      lat, lon, latFormatted, lonFormatted,
+      surfaceType: "river",
+      locationName,
+      elevationOrDepth: elevation,
+      surfaceTemp: temp,
+      secondaryTemp: parseFloat((temp - 4.2).toFixed(1)),
+      salinityOrNDVI: "< 0.2 PSU (Freshwater)",
+      oxygenOrMoisture: `${(7.4 + hashFrac * 1.5).toFixed(1)} mg/L (O²)`,
+      healthOrRiskScore: health,
+      pollutionOrDeforestation: Math.floor(100 - health + hashFrac * 12),
+      microplasticsOrFlowRate: flowRate,
+      speciesList,
+      telemetryStatus: "Active Fluvial Hydro-Stream & Discharge Gauge",
+      aiSummary: `Fluvial Telemetry at ${latFormatted}, ${lonFormatted} (${locationName}): Major river channel flow rate measured at ${flowRate}. Water temperature is ${temp}°C with ultra-low freshwater salinity (<0.2 PSU). Sediment runoff index is ${Math.floor(120 + hashFrac * 200)} mg/L. Key species present include ${speciesList.slice(0, 2).join(" and ")}.`,
+      point3D,
+    };
+  }
+
+  if (surfaceType === "land") {
+    const isArid = locationName.includes("Desert") || locationName.includes("Outback");
+    const isAlpine = locationName.includes("Alpine") || locationName.includes("Himalayan") || locationName.includes("Patagonian");
+    const isPolar = locationName.includes("Antarctic") || locationName.includes("Greenland") || locationName.includes("Siberian");
+
+    let temp = 26.8;
+    let elevation = `+${Math.floor(150 + hashFrac * 600)} m`;
+    let ndvi = "0.74 (Lush Canopy)";
+    let moisture = "78% Soil Moisture";
+
+    if (isArid) {
+      temp = parseFloat((36.5 + hashFrac * 8.0).toFixed(1));
+      elevation = `+${Math.floor(250 + hashFrac * 500)} m`;
+      ndvi = "0.08 (Arid Sand / Rock)";
+      moisture = "9% Soil Moisture";
+    } else if (isAlpine) {
+      temp = parseFloat((2.5 - hashFrac * 12.0).toFixed(1));
+      elevation = `+${Math.floor(2800 + hashFrac * 3500)} m`;
+      ndvi = "0.22 (Alpine Scrub)";
+      moisture = "42% Glacial Moisture";
+    } else if (isPolar) {
+      temp = parseFloat((-18.5 - hashFrac * 15.0).toFixed(1));
+      elevation = `+${Math.floor(1200 + hashFrac * 1800)} m`;
+      ndvi = "0.01 (Ice Cap)";
+      moisture = "98% Frozen Glacial Ice";
+    }
+
+    const health = Math.floor(60 + hashFrac * 32);
+
+    const landSpecies: Record<string, string[]> = {
+      "Amazonian Continental Canopy": ["Jaguar", "Harpy Eagle", "Howler Monkey", "Poison Dart Frog"],
+      "Sahara Desert Arid Plateau": ["Fennec Fox", "Addax Antelope", "Horned Viper", "Dromedary Camel"],
+      "Himalayan High Alpine Range": ["Snow Leopard", "Himalayan Monal", "Blue Sheep (Bharal)", "Red Panda"],
+      "Antarctic Ice Plateau": ["Emperor Penguin", "Snow Petrel", "Weddell Seal (Coastal)"],
+      "Australian Outback Arid Shield": ["Red Kangaroo", "Thorny Devil", "Wedge-tailed Eagle", "Perentie Monitor"],
+    };
+    const speciesList = landSpecies[locationName] || ["Gray Wolf", "Peregrine Falcon", "Red Deer", "Boreal Owl"];
+
+    return {
+      lat, lon, latFormatted, lonFormatted,
+      surfaceType: "land",
+      locationName,
+      elevationOrDepth: elevation,
+      surfaceTemp: temp,
+      secondaryTemp: parseFloat((temp - 8.5).toFixed(1)),
+      salinityOrNDVI: ndvi,
+      oxygenOrMoisture: moisture,
+      healthOrRiskScore: health,
+      pollutionOrDeforestation: Math.floor(100 - health + hashFrac * 10),
+      microplasticsOrFlowRate: `${Math.floor(15 + hashFrac * 40)}% Habitat Risk`,
+      speciesList,
+      telemetryStatus: "Active Satellite Vegetation & Land Thermal Scan",
+      aiSummary: `Terrestrial Telemetry at ${latFormatted}, ${lonFormatted} (${locationName}): Land elevation calculated at ${elevation}. Surface temperature registered at ${temp}°C with Normalized Difference Vegetation Index (NDVI) of ${ndvi}. Deforestation & habitat alteration risk score is ${Math.floor(100 - health)}/100. Primary fauna signatures match ${speciesList.slice(0, 2).join(" and ")}.`,
+      point3D,
+    };
+  }
+
+  // Ocean
+  const depthMeters = Math.floor(-3200 - hashFrac * 3500);
+  const temp = parseFloat((18.5 + hashFrac * 7.2).toFixed(1));
+  const deepTemp = parseFloat((1.8 + hashFrac * 1.4).toFixed(1));
+  const salinity = `${(34.8 + hashFrac * 1.1).toFixed(1)} PSU (Marine)`;
+  const oxygen = `${(5.4 + hashFrac * 1.6).toFixed(1)} mg/L (O²)`;
+  const health = Math.floor(62 + hashFrac * 30);
+  const microplastics = `${Math.floor(900 + hashFrac * 3200)} /m³`;
+
+  const oceanSpecies: Record<string, string[]> = {
+    "Mariana Hadal Trench Sector": ["Mariana Snailfish", "Giant Amphipod", "Xenophyophore"],
+    "Pacific Ocean Gyre": ["Sperm Whale", "Pacific Bluefin Tuna", "Manta Ray"],
+    "North Atlantic Ridge Sector": ["North Atlantic Right Whale", "Hydrothermal Vent Flora", "Deep Sea Coral"],
+    "Southern Antarctic Ocean Current": ["Blue Whale", "Antarctic Krill", "Colossal Squid"],
+  };
+  const speciesList = oceanSpecies[locationName] || ["Lanternfish", "Pelagic Shark", "Phytoplankton", "Sea Turtle"];
 
   return {
-    lat,
-    lon,
-    latFormatted,
-    lonFormatted,
-    regionName,
-    depthMeters,
-    surfaceTemp: parseFloat(surfaceTemp.toFixed(1)),
-    deepTemp: parseFloat(deepTemp.toFixed(1)),
-    salinity,
-    oxygen,
-    healthScore,
-    pollutionIndex,
-    microplastics,
-    acousticNoise,
+    lat, lon, latFormatted, lonFormatted,
+    surfaceType: "ocean",
+    locationName,
+    elevationOrDepth: `${Math.abs(depthMeters)} m (Depth)`,
+    surfaceTemp: temp,
+    secondaryTemp: deepTemp,
+    salinityOrNDVI: salinity,
+    oxygenOrMoisture: oxygen,
+    healthOrRiskScore: health,
+    pollutionOrDeforestation: Math.floor(100 - health),
+    microplasticsOrFlowRate: microplastics,
     speciesList,
-    telemetryStatus: "Active Satellite Radar & AUG Sensor Stream",
-    aiSummary,
+    telemetryStatus: "Active Bathymetric Radar & Deep AUG Sentinel Stream",
+    aiSummary: `Oceanic Telemetry at ${latFormatted}, ${lonFormatted} (${locationName}): Sea floor bathymetry depth at ${Math.abs(depthMeters)}m. Sea surface temperature is ${temp}°C (Abyssal: ${deepTemp}°C) with ocean salinity of ${salinity}. Microplastic concentration is estimated at ${microplastics}. Primary marine species present include ${speciesList.slice(0, 2).join(" and ")}.`,
     point3D,
   };
 }
@@ -153,15 +294,15 @@ function buildPhotorealisticEarthTex(): { map: THREE.CanvasTexture; specular: TH
 
   // 1. Ocean base depth gradient
   const oceanGrad = mapCtx.createLinearGradient(0, 0, 0, H);
-  oceanGrad.addColorStop(0.0, "#010C1A"); // Deep Arctic Dark
-  oceanGrad.addColorStop(0.2, "#021A38"); // North Ocean
-  oceanGrad.addColorStop(0.5, "#03284E"); // Equatorial Navy
-  oceanGrad.addColorStop(0.8, "#021633"); // Southern Deep
-  oceanGrad.addColorStop(1.0, "#010816"); // Antarctic Dark
+  oceanGrad.addColorStop(0.0, "#010C1A");
+  oceanGrad.addColorStop(0.2, "#021A38");
+  oceanGrad.addColorStop(0.5, "#03284E");
+  oceanGrad.addColorStop(0.8, "#021633");
+  oceanGrad.addColorStop(1.0, "#010816");
   mapCtx.fillStyle = oceanGrad;
   mapCtx.fillRect(0, 0, W, H);
 
-  // Specular map: oceans are highly shiny (white), land is matte (black)
+  // Specular map: ocean shiny white, land matte black
   specCtx.fillStyle = "#FFFFFF";
   specCtx.fillRect(0, 0, W, H);
 
@@ -170,19 +311,16 @@ function buildPhotorealisticEarthTex(): { map: THREE.CanvasTexture; specular: TH
 
   // Helper for drawing land biomes
   const drawLand = (pathFn: (ctx: CanvasRenderingContext2D) => void, landColor: string, shelfColor = "#0D5C75") => {
-    // Continental shallow shelf glow
     mapCtx.fillStyle = shelfColor;
     mapCtx.filter = "blur(12px)";
     pathFn(mapCtx);
     mapCtx.fill();
     mapCtx.filter = "none";
 
-    // Main landmass
     mapCtx.fillStyle = landColor;
     pathFn(mapCtx);
     mapCtx.fill();
 
-    // Land specularity is black (matte)
     specCtx.fillStyle = "#000000";
     pathFn(specCtx);
     specCtx.fill();
@@ -191,28 +329,55 @@ function buildPhotorealisticEarthTex(): { map: THREE.CanvasTexture; specular: TH
   // North & South Americas
   drawLand((ctx) => {
     ctx.beginPath();
-    ctx.ellipse(gx(-100), gy(45), 240, 140, -0.2, 0, Math.PI * 2); // N. America
-    ctx.ellipse(gx(-60), gy(-15), 140, 220, 0.3, 0, Math.PI * 2);  // S. America
+    ctx.ellipse(gx(-100), gy(45), 240, 140, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(gx(-60), gy(-15), 140, 220, 0.3, 0, Math.PI * 2);
   }, "#25482D", "#126B80");
 
-  // Eurasia & Africa
+  // Eurasia & Africa & Australia
   drawLand((ctx) => {
     ctx.beginPath();
-    ctx.ellipse(gx(25), gy(8), 180, 210, 0.1, 0, Math.PI * 2);   // Africa
-    ctx.ellipse(gx(85), gy(50), 380, 160, -0.1, 0, Math.PI * 2);  // Eurasia
-    ctx.ellipse(gx(135), gy(-25), 160, 120, 0, 0, Math.PI * 2);  // Australia
-    ctx.ellipse(gx(140), gy(35), 70, 90, 0.4, 0, Math.PI * 2);   // Japan/East Asia
+    ctx.ellipse(gx(25), gy(8), 180, 210, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(gx(85), gy(50), 380, 160, -0.1, 0, Math.PI * 2);
+    ctx.ellipse(gx(135), gy(-25), 160, 120, 0, 0, Math.PI * 2);
+    ctx.ellipse(gx(140), gy(35), 70, 90, 0.4, 0, Math.PI * 2);
   }, "#2E4E34", "#157A91");
 
-  // Deserts overlay (Sahara, Gobi, Australian Outback)
+  // Draw Major Rivers on texture (Amazon, Nile, Mississippi, Yangtze)
+  mapCtx.strokeStyle = "#4ECDC4";
+  mapCtx.lineWidth = 3;
+  // Amazon
+  mapCtx.beginPath();
+  mapCtx.moveTo(gx(-75), gy(-3));
+  mapCtx.quadraticCurveTo(gx(-62), gy(-2), gx(-50), gy(0));
+  mapCtx.stroke();
+
+  // Nile
+  mapCtx.beginPath();
+  mapCtx.moveTo(gx(31), gy(3));
+  mapCtx.lineTo(gx(31), gy(31));
+  mapCtx.stroke();
+
+  // Mississippi
+  mapCtx.beginPath();
+  mapCtx.moveTo(gx(-92), gy(46));
+  mapCtx.lineTo(gx(-89), gy(29));
+  mapCtx.stroke();
+
+  // Yangtze
+  mapCtx.beginPath();
+  mapCtx.moveTo(gx(102), gy(33));
+  mapCtx.lineTo(gx(121), gy(31));
+  mapCtx.stroke();
+
+  // Deserts
   mapCtx.fillStyle = "#A68652";
   mapCtx.beginPath();
-  mapCtx.ellipse(gx(20), gy(20), 120, 60, 0, 0, Math.PI * 2); // Sahara
-  mapCtx.ellipse(gx(90), gy(40), 100, 45, 0, 0, Math.PI * 2); // Gobi
-  mapCtx.ellipse(gx(135), gy(-25), 90, 50, 0, 0, Math.PI * 2); // Australia Desert
+  mapCtx.ellipse(gx(20), gy(20), 120, 60, 0, 0, Math.PI * 2);
+  mapCtx.ellipse(gx(90), gy(40), 100, 45, 0, 0, Math.PI * 2);
+  mapCtx.ellipse(gx(135), gy(-25), 90, 50, 0, 0, Math.PI * 2);
   mapCtx.fill();
 
-  // Ice Caps (Polar North & South)
+  // Ice Caps
   const drawIce = (yStart: number, height: number) => {
     mapCtx.fillStyle = "#E8F4F8";
     mapCtx.fillRect(0, yStart, W, height);
@@ -228,6 +393,7 @@ function buildPhotorealisticEarthTex(): { map: THREE.CanvasTexture; specular: TH
   return { map: mapTex, specular: specTex };
 }
 
+// Model & Sphere Loader Component with USDZ Support & High-Res Texture Fallback
 function PhotorealisticEarth({
   onCoordinateClick,
   activeCoord,
@@ -237,10 +403,26 @@ function PhotorealisticEarth({
 }) {
   const earthGroupRef = useRef<THREE.Group>(null);
   const cloudMeshRef = useRef<THREE.Mesh>(null);
+  const [usdzGroup, setUsdzGroup] = useState<THREE.Object3D | null>(null);
 
   const { map, specular } = useMemo(() => buildPhotorealisticEarthTex(), []);
 
-  // Rotate cloud layer gently
+  // Attempt to load Earth_1_12756.usdz model from public folder
+  useEffect(() => {
+    const loader = new USDZLoader();
+    loader.load(
+      "/Earth_1_12756.usdz",
+      (usdzScene) => {
+        usdzScene.scale.set(0.002, 0.002, 0.002);
+        setUsdzGroup(usdzScene);
+      },
+      undefined,
+      (err) => {
+        console.log("USDZ Model fallback to procedural texture planet:", err);
+      }
+    );
+  }, []);
+
   useFrame((_, delta) => {
     if (cloudMeshRef.current) {
       cloudMeshRef.current.rotation.y += delta * 0.02;
@@ -250,7 +432,6 @@ function PhotorealisticEarth({
     }
   });
 
-  // Atmosphere shader
   const atmoVert = `
     varying vec3 vNormal;
     void main() {
@@ -266,17 +447,22 @@ function PhotorealisticEarth({
     }
   `;
 
-  // Handle direct 3D raycast click anywhere on the Earth globe surface
   const handleSphereClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     if (!e.point) return;
-
-    // Convert local sphere point to Lat / Lon
     const localPoint = e.object.worldToLocal(e.point.clone());
     const { lat, lon } = vector3ToLatLon(localPoint, 2.0);
     const coordInfo = generateCoordinateData(lat, lon, [e.point.x, e.point.y, e.point.z]);
     onCoordinateClick(coordInfo);
   };
+
+  const beaconColor = activeCoord
+    ? activeCoord.surfaceType === "river"
+      ? "#4ECDC4"
+      : activeCoord.surfaceType === "land"
+      ? "#2ECC71"
+      : "#85ECD4"
+    : "#85ECD4";
 
   return (
     <group ref={earthGroupRef}>
@@ -302,7 +488,7 @@ function PhotorealisticEarth({
         />
       </mesh>
 
-      {/* Outer Atmosphere Atmosphere Glow */}
+      {/* Outer Atmosphere Glow */}
       <mesh scale={1.22}>
         <sphereGeometry args={[2.0, 32, 32]} />
         <shaderMaterial
@@ -317,35 +503,35 @@ function PhotorealisticEarth({
       {/* Active Clicked Coordinate 3D Beacon Pin */}
       {activeCoord && (
         <group position={latLonToVector3(activeCoord.lat, activeCoord.lon, 2.04)}>
-          {/* Glowing Beacon Core */}
+          {/* Beacon Core */}
           <mesh>
             <sphereGeometry args={[0.045, 16, 16]} />
             <meshStandardMaterial
-              color="#85ECD4"
-              emissive="#85ECD4"
-              emissiveIntensity={2.5}
+              color={beaconColor}
+              emissive={beaconColor}
+              emissiveIntensity={2.8}
             />
           </mesh>
 
-          {/* Beacon Pulse Ring */}
+          {/* Pulse Ring */}
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <ringGeometry args={[0.06, 0.08, 32]} />
-            <meshBasicMaterial color="#85ECD4" side={THREE.DoubleSide} transparent opacity={0.8} />
+            <meshBasicMaterial color={beaconColor} side={THREE.DoubleSide} transparent opacity={0.85} />
           </mesh>
 
-          {/* HTML Coordinate Label Overlay */}
+          {/* HTML Label */}
           <Html center distanceFactor={5.0}>
             <div
               className="pointer-events-none whitespace-nowrap rounded-xl px-3 py-1.5 text-[0.68rem] font-mono font-bold flex items-center gap-2 shadow-2xl"
               style={{
                 background: "rgba(3,14,26,0.95)",
-                border: "1px solid rgba(133,236,212,0.6)",
-                color: "#85ECD4",
-                boxShadow: "0 0 20px rgba(133,236,212,0.4)",
+                border: `1px solid ${beaconColor}`,
+                color: beaconColor,
+                boxShadow: `0 0 20px ${beaconColor}66`,
               }}
             >
-              <span className="w-2 h-2 rounded-full bg-foam animate-ping" />
-              <span>{activeCoord.latFormatted}, {activeCoord.lonFormatted}</span>
+              <span className="w-2 h-2 rounded-full animate-ping" style={{ background: beaconColor }} />
+              <span className="uppercase">{activeCoord.surfaceType} · {activeCoord.latFormatted}, {activeCoord.lonFormatted}</span>
             </div>
           </Html>
         </group>
@@ -375,10 +561,7 @@ function Starfield() {
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[positions, 3]}
-        />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial size={0.12} color="#FFFFFF" transparent opacity={0.6} />
     </points>
