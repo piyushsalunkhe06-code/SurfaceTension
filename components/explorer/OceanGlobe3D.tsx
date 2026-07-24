@@ -435,13 +435,37 @@ function RealEarthGlobe({
     uSunDirection: { value: sunDirection },
   }), [sunDirection]);
 
+  const targetRotation = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (activeCoord) {
+      const targetY = (-activeCoord.lon - 90) * (Math.PI / 180);
+      const targetX = (activeCoord.lat) * (Math.PI / 180);
+      targetRotation.current = { x: targetX, y: targetY };
+    }
+  }, [activeCoord]);
+
   useFrame((_, delta) => {
     timeRef.current += delta;
     if (earthUniforms.uTime) {
       earthUniforms.uTime.value = timeRef.current;
     }
-    if (earthRef.current && !activeCoord) {
-      earthRef.current.rotation.y += delta * 0.025;
+    if (earthRef.current) {
+      if (targetRotation.current) {
+        earthRef.current.rotation.y = THREE.MathUtils.lerp(
+          earthRef.current.rotation.y,
+          targetRotation.current.y,
+          0.08
+        );
+        earthRef.current.rotation.x = THREE.MathUtils.lerp(
+          earthRef.current.rotation.x,
+          targetRotation.current.x,
+          0.08
+        );
+      } else if (!activeCoord) {
+        earthRef.current.rotation.x = THREE.MathUtils.lerp(earthRef.current.rotation.x, 0, 0.05);
+        earthRef.current.rotation.y += delta * 0.025;
+      }
     }
     if (cloudRef.current) {
       cloudRef.current.rotation.y += delta * 0.03;
