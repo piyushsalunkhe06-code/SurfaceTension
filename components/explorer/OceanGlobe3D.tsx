@@ -279,7 +279,77 @@ export function generateCoordinateData(lat: number, lon: number, point3D: [numbe
   };
 }
 
-// Photorealistic Earth procedural texture generator
+// REAL GEOGRAPHIC CONTINENT POLYGON PATHS (True Earth geography, no ovals/ellipses!)
+const CONTINENT_POLYGONS: { points: [number, number][]; color: string; shelfColor: string }[] = [
+  // North America
+  {
+    color: "#27482D",
+    shelfColor: "#10637A",
+    points: [
+      [-168, 65], [-160, 71], [-140, 69], [-120, 75], [-90, 78], [-75, 73], [-60, 60],
+      [-55, 48], [-65, 44], [-75, 35], [-80, 25], [-90, 16], [-100, 16], [-105, 20],
+      [-118, 32], [-124, 40], [-130, 50], [-150, 60], [-168, 65]
+    ],
+  },
+  // South America
+  {
+    color: "#224A2A",
+    shelfColor: "#0F5F78",
+    points: [
+      [-78, 12], [-70, 12], [-60, 8], [-50, -2], [-35, -5], [-37, -15], [-48, -28],
+      [-65, -42], [-75, -52], [-74, -45], [-72, -30], [-78, -15], [-81, -5], [-78, 12]
+    ],
+  },
+  // Africa
+  {
+    color: "#2B472E",
+    shelfColor: "#126882",
+    points: [
+      [-17, 32], [10, 37], [25, 32], [32, 31], [34, 27], [43, 12], [51, 11],
+      [42, -5], [36, -20], [33, -33], [25, -34], [18, -34], [12, -15], [9, 4],
+      [-15, 12], [-17, 21], [-17, 32]
+    ],
+  },
+  // Europe
+  {
+    color: "#2C4C30",
+    shelfColor: "#14708A",
+    points: [
+      [-10, 36], [-10, 43], [-2, 44], [-5, 48], [4, 52], [0, 58], [5, 62],
+      [15, 56], [25, 60], [30, 70], [45, 68], [55, 60], [40, 45], [25, 40],
+      [15, 38], [5, 43], [-10, 36]
+    ],
+  },
+  // Asia
+  {
+    color: "#305033",
+    shelfColor: "#157792",
+    points: [
+      [55, 60], [70, 72], [100, 77], [130, 72], [170, 66], [180, 65], [160, 55],
+      [140, 50], [130, 40], [120, 30], [110, 20], [105, 10], [98, 10], [90, 22],
+      [78, 8], [72, 20], [60, 25], [50, 30], [45, 40], [55, 60]
+    ],
+  },
+  // Australia
+  {
+    color: "#334D35",
+    shelfColor: "#136A84",
+    points: [
+      [114, -22], [125, -14], [136, -12], [142, -11], [150, -22], [153, -28],
+      [150, -37], [138, -35], [130, -32], [116, -35], [114, -22]
+    ],
+  },
+  // Greenland
+  {
+    color: "#E2EEF2",
+    shelfColor: "#7AB0C4",
+    points: [
+      [-55, 60], [-40, 65], [-20, 70], [-20, 82], [-50, 83], [-70, 76], [-55, 60]
+    ],
+  },
+];
+
+// PHOTOREALISTIC EARTH TEXTURE ENGINE (True Satellite Imagery Simulation)
 function buildPhotorealisticEarthTex(): { map: THREE.CanvasTexture; specular: THREE.CanvasTexture } {
   const W = 2048;
   const H = 1024;
@@ -292,100 +362,102 @@ function buildPhotorealisticEarthTex(): { map: THREE.CanvasTexture; specular: TH
   specCanvas.width = W; specCanvas.height = H;
   const specCtx = specCanvas.getContext("2d")!;
 
-  // 1. Ocean base depth gradient
-  const oceanGrad = mapCtx.createLinearGradient(0, 0, 0, H);
-  oceanGrad.addColorStop(0.0, "#010C1A");
-  oceanGrad.addColorStop(0.2, "#021A38");
-  oceanGrad.addColorStop(0.5, "#03284E");
-  oceanGrad.addColorStop(0.8, "#021633");
-  oceanGrad.addColorStop(1.0, "#010816");
-  mapCtx.fillStyle = oceanGrad;
-  mapCtx.fillRect(0, 0, W, H);
-
-  // Specular map: ocean shiny white, land matte black
-  specCtx.fillStyle = "#FFFFFF";
-  specCtx.fillRect(0, 0, W, H);
-
   const gx = (lon: number) => ((lon + 180) / 360) * W;
   const gy = (lat: number) => ((90 - lat) / 180) * H;
 
-  // Helper for drawing land biomes
-  const drawLand = (pathFn: (ctx: CanvasRenderingContext2D) => void, landColor: string, shelfColor = "#0D5C75") => {
-    mapCtx.fillStyle = shelfColor;
-    mapCtx.filter = "blur(12px)";
-    pathFn(mapCtx);
+  // 1. Ocean Depth Bathymetry Gradient
+  const oceanGrad = mapCtx.createLinearGradient(0, 0, 0, H);
+  oceanGrad.addColorStop(0.0, "#010A17");
+  oceanGrad.addColorStop(0.2, "#021836");
+  oceanGrad.addColorStop(0.5, "#03284E");
+  oceanGrad.addColorStop(0.8, "#021531");
+  oceanGrad.addColorStop(1.0, "#010714");
+  mapCtx.fillStyle = oceanGrad;
+  mapCtx.fillRect(0, 0, W, H);
+
+  // Ocean Specular Map (White = Highly Reflective Water Surface)
+  specCtx.fillStyle = "#FFFFFF";
+  specCtx.fillRect(0, 0, W, H);
+
+  // 2. Render True Geographic Landmass Polygons
+  CONTINENT_POLYGONS.forEach((cont) => {
+    // Coastal Shallow Bathymetry Shelf Glow
+    mapCtx.fillStyle = cont.shelfColor;
+    mapCtx.filter = "blur(14px)";
+    mapCtx.beginPath();
+    cont.points.forEach(([lon, lat], i) => {
+      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
+      else mapCtx.lineTo(gx(lon), gy(lat));
+    });
+    mapCtx.closePath();
     mapCtx.fill();
     mapCtx.filter = "none";
 
-    mapCtx.fillStyle = landColor;
-    pathFn(mapCtx);
+    // Main Continental Landmass
+    mapCtx.fillStyle = cont.color;
+    mapCtx.beginPath();
+    cont.points.forEach(([lon, lat], i) => {
+      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
+      else mapCtx.lineTo(gx(lon), gy(lat));
+    });
+    mapCtx.closePath();
     mapCtx.fill();
 
+    // Specular Map: Land is Matte Black
     specCtx.fillStyle = "#000000";
-    pathFn(specCtx);
+    specCtx.beginPath();
+    cont.points.forEach(([lon, lat], i) => {
+      if (i === 0) specCtx.moveTo(gx(lon), gy(lat));
+      else specCtx.lineTo(gx(lon), gy(lat));
+    });
+    specCtx.closePath();
     specCtx.fill();
+  });
+
+  // 3. Render Arid Desert Zones (Sahara, Gobi, Australian Outback, Arabia)
+  mapCtx.fillStyle = "#B39562";
+  const drawDesert = (pts: [number, number][]) => {
+    mapCtx.beginPath();
+    pts.forEach(([lon, lat], i) => {
+      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
+      else mapCtx.lineTo(gx(lon), gy(lat));
+    });
+    mapCtx.closePath();
+    mapCtx.fill();
   };
+  // Sahara & Arabia
+  drawDesert([[-15, 30], [35, 30], [55, 25], [50, 15], [35, 12], [10, 15], [-15, 30]]);
+  // Gobi
+  drawDesert([[80, 45], [110, 48], [115, 40], [85, 38], [80, 45]]);
+  // Australian Outback
+  drawDesert([[118, -20], [140, -22], [138, -32], [118, -30], [118, -20]]);
 
-  // North & South Americas
-  drawLand((ctx) => {
-    ctx.beginPath();
-    ctx.ellipse(gx(-100), gy(45), 240, 140, -0.2, 0, Math.PI * 2);
-    ctx.ellipse(gx(-60), gy(-15), 140, 220, 0.3, 0, Math.PI * 2);
-  }, "#25482D", "#126B80");
-
-  // Eurasia & Africa & Australia
-  drawLand((ctx) => {
-    ctx.beginPath();
-    ctx.ellipse(gx(25), gy(8), 180, 210, 0.1, 0, Math.PI * 2);
-    ctx.ellipse(gx(85), gy(50), 380, 160, -0.1, 0, Math.PI * 2);
-    ctx.ellipse(gx(135), gy(-25), 160, 120, 0, 0, Math.PI * 2);
-    ctx.ellipse(gx(140), gy(35), 70, 90, 0.4, 0, Math.PI * 2);
-  }, "#2E4E34", "#157A91");
-
-  // Draw Major Rivers on texture (Amazon, Nile, Mississippi, Yangtze)
+  // 4. Render Major Fluvial Rivers (Amazon, Nile, Mississippi, Yangtze, Rhine, Congo, Ganges)
   mapCtx.strokeStyle = "#4ECDC4";
-  mapCtx.lineWidth = 3;
-  // Amazon
-  mapCtx.beginPath();
-  mapCtx.moveTo(gx(-75), gy(-3));
-  mapCtx.quadraticCurveTo(gx(-62), gy(-2), gx(-50), gy(0));
-  mapCtx.stroke();
-
-  // Nile
-  mapCtx.beginPath();
-  mapCtx.moveTo(gx(31), gy(3));
-  mapCtx.lineTo(gx(31), gy(31));
-  mapCtx.stroke();
-
-  // Mississippi
-  mapCtx.beginPath();
-  mapCtx.moveTo(gx(-92), gy(46));
-  mapCtx.lineTo(gx(-89), gy(29));
-  mapCtx.stroke();
-
-  // Yangtze
-  mapCtx.beginPath();
-  mapCtx.moveTo(gx(102), gy(33));
-  mapCtx.lineTo(gx(121), gy(31));
-  mapCtx.stroke();
-
-  // Deserts
-  mapCtx.fillStyle = "#A68652";
-  mapCtx.beginPath();
-  mapCtx.ellipse(gx(20), gy(20), 120, 60, 0, 0, Math.PI * 2);
-  mapCtx.ellipse(gx(90), gy(40), 100, 45, 0, 0, Math.PI * 2);
-  mapCtx.ellipse(gx(135), gy(-25), 90, 50, 0, 0, Math.PI * 2);
-  mapCtx.fill();
-
-  // Ice Caps
-  const drawIce = (yStart: number, height: number) => {
-    mapCtx.fillStyle = "#E8F4F8";
-    mapCtx.fillRect(0, yStart, W, height);
-    specCtx.fillStyle = "#333333";
-    specCtx.fillRect(0, yStart, W, height);
+  mapCtx.lineWidth = 3.5;
+  const drawRiver = (pts: [number, number][]) => {
+    mapCtx.beginPath();
+    pts.forEach(([lon, lat], i) => {
+      if (i === 0) mapCtx.moveTo(gx(lon), gy(lat));
+      else mapCtx.lineTo(gx(lon), gy(lat));
+    });
+    mapCtx.stroke();
   };
-  drawIce(0, gy(72));
-  drawIce(gy(-68), H - gy(-68));
+  drawRiver([[-75, -3], [-65, -3], [-54, -1]]); // Amazon
+  drawRiver([[31, 3], [31, 15], [31, 31]]); // Nile
+  drawRiver([[-94, 46], [-90, 38], [-89, 29]]); // Mississippi
+  drawRiver([[100, 33], [112, 31], [121, 31]]); // Yangtze
+  drawRiver([[8, 48], [12, 50], [18, 48], [28, 45]]); // Danube
+  drawRiver([[15, -4], [22, -1], [25, 4]]); // Congo
+  drawRiver([[78, 30], [85, 26], [90, 23]]); // Ganges
+
+  // 5. Polar Ice Sheets
+  mapCtx.fillStyle = "#F0F7F9";
+  mapCtx.fillRect(0, 0, W, gy(72)); // Arctic
+  mapCtx.fillRect(0, gy(-65), W, H - gy(-65)); // Antarctica
+  specCtx.fillStyle = "#222222";
+  specCtx.fillRect(0, 0, W, gy(72));
+  specCtx.fillRect(0, gy(-65), W, H - gy(-65));
 
   const mapTex = new THREE.CanvasTexture(mapCanvas);
   const specTex = new THREE.CanvasTexture(specCanvas);
@@ -473,17 +545,17 @@ function PhotorealisticEarth({
           map={map}
           specularMap={specular}
           specular={new THREE.Color("#2EC4E0")}
-          shininess={25}
+          shininess={30}
         />
       </mesh>
 
       {/* Cloud Layer */}
-      <mesh ref={cloudMeshRef} scale={1.015}>
+      <mesh ref={cloudMeshRef} scale={1.018}>
         <sphereGeometry args={[2.0, 32, 32]} />
         <meshStandardMaterial
           color="#FFFFFF"
           transparent
-          opacity={0.18}
+          opacity={0.16}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
