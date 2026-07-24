@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Waves, Home, Compass } from "lucide-react";
+import { Waves, Home, Compass, Sparkles } from "lucide-react";
 
 export default function OceanWatchHeader() {
   return (
@@ -19,12 +19,17 @@ export default function OceanWatchHeader() {
             </div>
             <div>
               <h1 className="font-display font-bold text-pearl text-base tracking-tight leading-none">Ocean Watch</h1>
-              <p className="text-[0.58rem] font-mono text-mist/50 mt-0.5">Real-Time Marine Observation Suite</p>
+              <p className="text-[0.58rem] font-mono text-mist/50 mt-0.5">Real-Time Marine Observation &amp; Gemini AI Copilot</p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full border border-seafoam/25 bg-seafoam/5 font-mono text-[0.62rem] text-seafoam">
+            <Sparkles className="w-3 h-3 text-seafoam" />
+            <span>Gemini AI Engine Online · SurfaceTension</span>
+          </div>
+
           <div className="hidden sm:flex items-center gap-2 font-mono text-[0.62rem] text-mist/50">
             <motion.div animate={{ opacity: [1,0.3,1] }} transition={{ repeat: Infinity, duration: 2 }} className="w-1.5 h-1.5 rounded-full bg-foam" />
             <span>2,318 Sensor Streams Active</span>
