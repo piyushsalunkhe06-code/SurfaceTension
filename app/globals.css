@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* ─── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  background: #050E1A;
+  color: #E8F4FD;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* ─── Custom Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #050E1A; }
+::-webkit-scrollbar-thumb { background: rgba(78, 205, 196, 0.25); border-radius: 999px; }
+
+/* ─── Ocean Glass Effect ─────────────────────────────────── */
+.glass-ocean {
+  background: rgba(11, 30, 53, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(78, 205, 196, 0.12);
+  box-shadow:
+    0 0 40px -15px rgba(0, 150, 183, 0.2),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* Coral card accent */
+.glass-coral {
+  background: rgba(20, 10, 15, 0.45);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 107, 107, 0.15);
+  box-shadow: 0 0 30px -12px rgba(255, 107, 107, 0.2);
+}
+
+/* ─── Glow Text ──────────────────────────────────────────── */
+.text-glow-ocean {
+  text-shadow: 0 0 28px rgba(0, 180, 216, 0.45);
+}
+.text-glow-biolum {
+  text-shadow: 0 0 24px rgba(127, 255, 212, 0.5);
+}
+.text-glow-coral {
+  text-shadow: 0 0 22px rgba(255, 107, 107, 0.45);
+}
+
+/* ─── Section Wave Divider ───────────────────────────────── */
+.wave-top {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  line-height: 0;
+}
+.wave-bottom {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  line-height: 0;
+  transform: rotate(180deg);
+}
+
+/* ─── Animated Gradient Text ─────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #4ECDC4 0%, #0096B7 40%, #7FFFD4 70%, #4ECDC4 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ─── Bubble Float ───────────────────────────────────────── */
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85), rgba(78,205,196,0.1));
+  pointer-events: none;
+  animation: bubble_rise linear infinite;
+}
+@keyframes bubble_rise {
+  0%   { transform: translateY(0) scale(1);   opacity: 0.6; }
+  10%  { opacity: 0.7; }
+  100% { transform: translateY(-110vh) scale(1.25); opacity: 0; }
+}
+
+/* ─── Reduced Motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Thin Scrollbar ─────────────────────────────────────── */
+.scrollbar-thin::-webkit-scrollbar       { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(78,205,196,0.2); border-radius: 999px; }
+
+/* ─── Ping Animation for Map ─────────────────────────────── */
+@keyframes ping {
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+.animate-ping { animation: ping 1.8s cubic-bezier(0,0,0.2,1) infinite; }
+
+/* ─── Sway for Kelp/Coral ────────────────────────────────── */
+@keyframes sway {
+  0%,100% { transform: rotate(-4deg) translateX(0); }
+  50%     { transform: rotate(4deg) translateX(3px); }
+}
+.animate-sway { animation: sway 4s ease-in-out infinite; }
